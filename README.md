@@ -470,3 +470,8 @@ Deaddrop grew out of a conversation about what happens when humans stop browsing
 The longer version became the essay **“Deaddrop.”**[^1]
 
 [^1]: Ivana Vrtaric, *Deaddrop*, Medium, 2026 — https://medium.com/@ivavrtaric/deaddrop-fa09f97dba93
+
+
+## Architecture documentation
+
+See **[docs/README.md](docs/README.md)** for the complete public architecture map.
