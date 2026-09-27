@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/deaddrop-protocol",
+    "crates/deaddrop-core",
+    "crates/deaddrop-store",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
