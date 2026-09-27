@@ -3,91 +3,81 @@
 **Status:** Foundational architectural invariant  
 **Applies to:** protocol, clients, relays, services, storage, agents, integrations, tooling, and governance
 
-Deaddrop is not defined by a particular UI, transport, database, model, runtime, or implementation language.
+Deaddrop is defined by architectural constraints that remain stable across UI, transport, database, model, runtime, and implementation language.
 
-Those may change.
+Implementations may evolve.
 
-This document defines the constraints that must not quietly change with them.
+These principles preserve the identity of the system through that evolution.
 
-A contribution may be technically elegant, useful, popular, or commercially attractive and still be incompatible with Deaddrop if it violates these principles.
-
----
-
-## Article I — Existence is not publication
-
-> **Nothing is public merely because it exists.**
-
-Creating information is not the same as publishing it.
-
-Persisting information is not the same as indexing it.
-
-Making information technically reachable is not the same as granting permission to inspect, classify, summarize, profile, train on, redistribute, or expose it.
-
-No Deaddrop component may treat mere existence as evidence of public intent.
-
-Publicness must be explicit.
+A contribution belongs in Deaddrop when it strengthens these principles in practice.
 
 ---
 
-## Article II — Existence is not consent to index
+## Article I — Publicness is explicit
 
-> **Existence is not consent to index.**
+> **Publicness is explicit.**
 
-Indexing is an action with consequences.
+Creation, persistence, indexing, publication, redistribution, training access, and audience expansion are distinct actions.
 
-It creates discoverability.
+Each action carries its own scope and authority.
 
-It changes audience.
+Deaddrop components preserve those distinctions.
 
-It changes the risk profile of information.
-
-It can enable correlation, profiling, inference, aggregation, ranking, recommendation, surveillance, or reuse far beyond the context in which the information was created.
-
-Therefore Deaddrop must not silently convert reachable information into searchable information.
-
-A component that indexes data must have a clear scope, authority, purpose, retention model, and audience.
-
-If those are ambiguous, the safe default is not to index.
+Public intent is represented explicitly.
 
 ---
 
-## Article III — Infrastructure should know less than participants
+## Article II — Indexing requires scope and authority
 
-> **The infrastructure should know less than the participants.**
+> **Indexing requires explicit scope and authority.**
 
-Intermediaries should possess the minimum knowledge required to perform their function.
+Indexing creates discoverability and changes the audience and risk profile of information.
 
-A relay should not need message plaintext.
+Every index therefore has:
 
-An artifact store should not need artifact semantics.
+- a defined scope
+- a defined authority
+- a defined purpose
+- a defined retention model
+- a defined audience
 
-Discovery should not require reading private conversations.
-
-A routing component should not receive unrelated private state.
-
-A service should not infer identity, relationships, behavior, or intent merely because the data required to do so happens to pass through it.
-
-The architecture should minimize the amount of information available to intermediaries rather than merely promising not to misuse it.
-
-This is stronger than a privacy policy.
-
-It is a systems constraint.
+Ambiguity resolves toward the narrower scope.
 
 ---
 
-## Article IV — Recipient scope is explicit
+## Article III — Infrastructure minimizes knowledge
 
-A dead drop is not a broadcast.
+> **Infrastructure learns the minimum required for its role.**
 
-A message is for the recipient or audience deliberately selected by the sender.
+Intermediaries receive the smallest useful view of the system.
 
-No component may silently expand that audience.
+A relay routes encrypted payloads.
 
-Forwarding, replication, publication, indexing, archival, model access, agent access, and third-party access are separate decisions.
+An artifact store preserves bytes and integrity.
 
-The system must preserve that distinction.
+Discovery operates within explicit scope.
 
-Hidden audience expansion is an architectural failure.
+Routing receives the context required for routing.
+
+Services receive purpose-limited information.
+
+The architecture reduces intermediary knowledge through system design.
+
+This is a systems constraint.
+
+---
+
+## Article IV — Recipient scope is preserved
+
+A dead drop is recipient-scoped exchange.
+
+The sender selects the recipient or audience.
+
+The system preserves that scope across transport, storage, replication, archival, indexing, model access, agent access, and third-party integration.
+
+Audience changes are explicit events with explicit authority.
+
+Recipient scope remains inspectable end to end.
 
 ---
 
@@ -95,25 +85,23 @@ Hidden audience expansion is an architectural failure.
 
 A Deaddrop node belongs to its operator.
 
-Local state is not a cache belonging to a platform.
+Local state is primary operator-owned state.
 
-The local system must remain conceptually primary even when network services are useful.
+Network services extend local capability.
 
-The network extends the node.
+Disconnected operation remains useful wherever practical.
 
-It does not become the owner of the node.
-
-Where practical, a node should retain useful local behavior when disconnected from centralized infrastructure.
+Local ownership stays meaningful across deployment models.
 
 ---
 
-## Article VI — Share messages, not sandboxes
+## Article VI — Coordination happens through explicit exchange
 
-> **Share messages, not sandboxes.**
+> **Share messages. Keep sandboxes private.**
 
-Private working state should remain private working state.
+Private working state remains private working state.
 
-Agents, peers, machines, and runtimes should coordinate through explicit interfaces:
+Agents, peers, machines, and runtimes coordinate through explicit interfaces:
 
 - messages
 - immutable artifact references
@@ -124,53 +112,39 @@ Agents, peers, machines, and runtimes should coordinate through explicit interfa
 - capability declarations
 - authorized requests
 
-They should not require unrestricted access to each other's mutable working environments.
-
 A sandbox is a workshop.
 
-It is not a coordination protocol.
+The coordination protocol is the explicit exchange between workshops.
 
 ---
 
-## Article VII — Agents meet by reference, not by cohabitation
+## Article VII — Agents meet by reference
 
-> **Agents should meet by reference, not by cohabitation.**
+> **Agents meet by reference across isolated runtimes.**
 
-Distributed cooperation should not depend on pretending that many agents are one process.
+Distributed cooperation uses explicit handoffs between independent agents.
 
-An agent should be able to hand off work without exposing its full memory, scratch state, filesystem, process space, hidden prompts, credentials, or unrelated context.
+An agent shares the information required for the handoff while retaining its private memory, scratch state, filesystem, process space, prompts, credentials, and unrelated context.
 
-References and provenance should make cooperation inspectable.
+References and provenance make cooperation inspectable.
 
-Isolation should remain meaningful.
+Isolation remains a first-class architectural property.
 
 ---
 
 ## Article VIII — Authority is explicit
 
-A model output is not automatically authority.
-
-A signed message is not automatically authority.
-
-A cache is not automatically authority.
-
-A projection is not automatically authority.
-
-A memory is not automatically authority.
-
-A coordination log is not automatically authority.
-
-Each domain must define where truth is owned.
+Each domain defines where truth is owned.
 
 Examples:
 
 - a repository may own source code state
 - a database may own application state
-- a document may own a policy text
+- a document may own policy text
 - an external service may own an account or transaction
 - a human may own authorization for a consequential action
 
-Deaddrop must preserve the difference between:
+Deaddrop preserves the distinction between:
 
 ```text
 LOCAL SANDBOX
@@ -183,16 +157,28 @@ COORDINATION HISTORY
 messages, claims, ACKs, handoffs, checkpoints
 
 SOURCE AUTHORITY
-the system that actually owns the fact
+the system that owns the fact
 ```
 
-Convenience must not collapse these categories.
+Model output is interpreted as model output.
+
+Signed messages are interpreted as signed messages.
+
+Caches are interpreted as caches.
+
+Projections are interpreted as derived views.
+
+Memory is interpreted as retained knowledge.
+
+Coordination logs are interpreted as coordination history.
+
+Authority is named by the domain that owns it.
 
 ---
 
 ## Article IX — Provenance travels with information
 
-Information should retain enough provenance to answer:
+Information retains enough provenance to answer:
 
 - where did this come from?
 - who or what produced it?
@@ -201,19 +187,19 @@ Information should retain enough provenance to answer:
 - has the content changed?
 - is this observation, inference, memory, or authority?
 
-A result without provenance must be distinguishable from one with provenance.
+Provenance makes a claim inspectable.
 
-Provenance does not make a claim true.
-
-It makes the claim inspectable.
+Confidence and authority remain separate dimensions.
 
 ---
 
-## Article X — Immutable reference beats ambiguous location
+## Article X — Content identity anchors artifact integrity
 
-Mutable filenames, URLs, UI positions, and human labels are useful but insufficient as stable evidence.
+Mutable filenames, URLs, UI positions, and human labels provide useful navigation.
 
-Where integrity matters, artifacts should be referenceable by content identity.
+Content identity provides stable evidence.
+
+Where integrity matters, artifacts are referenceable by content identity.
 
 For example:
 
@@ -221,23 +207,17 @@ For example:
 sha256:<digest>
 ```
 
-The transport may change.
-
-The storage location may change.
-
-The descriptive name may change.
-
-The identity of the referenced bytes must not.
+Transport, storage location, and descriptive names may evolve around a stable byte identity.
 
 ---
 
 ## Article XI — Human authority remains legible
 
-Automation should reduce mechanical work without making authority disappear.
+Automation reduces mechanical work while preserving visible authority boundaries.
 
 Agents may search, compare, summarize, prepare, route, verify, and coordinate.
 
-Consequential mutations should cross an explicit authorization boundary.
+Consequential mutations cross an explicit authorization boundary.
 
 Examples include:
 
@@ -249,27 +229,13 @@ Examples include:
 - privilege changes
 - actions with legal, financial, safety, or irreversible consequences
 
-The human does not need to manually perform every step.
-
-But the system must make clear when an agent is observing, proposing, preparing, or acting with delegated authority.
+The system makes clear when an agent is observing, proposing, preparing, or acting with delegated authority.
 
 ---
 
-## Article XII — Capability graph, not popularity graph
+## Article XII — Capability routing drives discovery
 
-Deaddrop should route based on relevance, authority, capability, trust, context, and provenance.
-
-It should not recreate the incentive structure of social platforms.
-
-The network should not optimize for:
-
-- follower count
-- virality
-- engagement
-- time on platform
-- outrage
-- trending status
-- behavioral retention
+Deaddrop routes based on relevance, authority, capability, trust, context, and provenance.
 
 The useful questions are:
 
@@ -281,80 +247,63 @@ Which artifact supports this claim?
 Which peer can accept this handoff?
 ```
 
-The system should optimize for successful work.
-
-Not attention capture.
+The system optimizes for successful work, correct routing, and verifiable handoff.
 
 ---
 
-## Article XIII — Surveillance is not a business model
+## Article XIII — Privacy shapes product operation
 
-Deaddrop must not require behavioral surveillance in order to function as a product.
+Core functionality works through recipient scope, purpose limitation, least privilege, and explicit authority.
 
-Core functionality should not depend on:
+Operational observability supports reliability through:
 
-- cross-context behavioral profiling
-- advertising identifiers
-- hidden recommendation telemetry
-- attention tracking
-- engagement scoring
-- opaque social graphs
-- silent audience expansion
-- data collection whose primary purpose is future monetization
+- purpose-limited collection
+- data minimization
+- documented semantics
+- separation from behavioral profiling
+- justified retention
+- explicit access boundaries
 
-Operational observability may be necessary to run reliable systems.
-
-When it is, it must be:
-
-- purpose-limited
-- minimized
-- documented
-- separable from behavioral profiling
-- retained only as long as justified
-
-Reliability telemetry must not quietly become surveillance infrastructure.
+Product value comes from successful work, reliability, and trust.
 
 ---
 
-## Article XIV — Minimize trust, not just document it
+## Article XIV — Trust is minimized through architecture
 
-The system should assume that:
+The system plans for curious intermediaries, revealing metadata, compromised endpoints, agent error, malicious peers, dependency failure, and operator misconfiguration.
 
-- intermediaries may be curious
-- metadata can reveal information
-- endpoints can be compromised
-- agents can make mistakes
-- peers can be malicious
-- dependencies can fail
-- operators can misconfigure systems
+Security therefore uses:
 
-Security should therefore be designed around constrained knowledge, least privilege, explicit authority, verification, and isolation.
+- constrained knowledge
+- least privilege
+- explicit authority
+- verification
+- isolation
+- auditable boundaries
 
-A component should not be trusted with information merely because it is operated by us.
-
----
-
-## Article XV — Security-critical foundations are public
-
-The public protocol must be inspectable.
-
-Cryptographic choices should not depend on secrecy.
-
-Message formats, authorization boundaries, integrity rules, protocol invariants, threat assumptions, and interoperability behavior should be reviewable.
-
-Deaddrop should welcome hostile review of the public substrate.
-
-Security claims become stronger when outsiders can attempt to break them.
+Every component receives the minimum trust and information required for its function.
 
 ---
 
-## Article XVI — Defensive operations remain need-to-know
+## Article XV — Security-critical foundations are inspectable
+
+The public protocol is inspectable.
+
+Cryptographic choices are reviewable.
+
+Message formats, authorization boundaries, integrity rules, protocol invariants, threat assumptions, and interoperability behavior are documented.
+
+Deaddrop welcomes adversarial review of the public substrate.
+
+Security claims strengthen through independent scrutiny.
+
+---
+
+## Article XVI — Defensive operations follow need-to-know boundaries
 
 > **Open the protocol. Keep defensive operations need-to-know.**
 
-Publishing the security model does not require publishing every operational defense.
-
-The public repository may describe:
+The public repository documents:
 
 - threat classes
 - guarantees
@@ -363,7 +312,7 @@ The public repository may describe:
 - abuse boundaries
 - security goals
 
-It does not need to expose exact production details such as:
+Production defense retains deployment-specific details within operational scope, including:
 
 - detection heuristics
 - thresholds
@@ -373,47 +322,41 @@ It does not need to expose exact production details such as:
 - defensive routing behavior
 - incident-response playbooks
 - decoy mechanisms
-- operational countermeasures whose disclosure materially weakens them
+- live countermeasures
 
-This is not a substitute for sound protocol design.
+Inspectable protocol design provides the foundation.
 
-It is operational security layered on top of an inspectable protocol.
-
----
-
-## Article XVII — No hidden centrality
-
-A relay is a transport mechanism.
-
-It must not quietly become:
-
-- the owner of identity
-- the owner of the social graph
-- the source of truth for private state
-- a mandatory content index
-- an advertising platform
-- an engagement ranking system
-- an irreversible dependency for local ownership
-
-Central services may exist where useful.
-
-They must not silently redefine the project around themselves.
+Operational security adds deployment-specific protection above it.
 
 ---
 
-## Article XVIII — No engagement traps
+## Article XVII — Services remain subordinate to local ownership
+
+Relays and central services provide bounded capabilities.
+
+A relay transports messages.
+
+Identity authority remains explicit.
+
+Private-state authority remains explicit.
+
+Indexes remain scoped.
+
+Local ownership remains portable.
+
+Service boundaries remain visible and replaceable.
+
+---
+
+## Article XVIII — The product optimizes for completed work
 
 Deaddrop is an instrument.
 
 You open it because you intend to do something.
 
-Then you should be able to leave.
+You leave when the task is complete.
 
-A feature should be treated with suspicion if its primary success metric is that the user remains inside the product longer than necessary.
-
-Time-on-app is not a proxy for value.
-
-The system should optimize for:
+Success metrics center on:
 
 - task completion
 - clarity
@@ -422,16 +365,15 @@ The system should optimize for:
 - low friction
 - successful handoff
 - correct authorization
+- reliability
 
-Not captivity.
+Attention remains available to the human for everything beyond the tool.
 
 ---
 
-## Article XIX — Privacy is architectural, not cosmetic
+## Article XIX — Privacy is architectural
 
-A privacy settings page cannot compensate for architecture that exposes too much by default.
-
-Privacy must influence:
+Privacy shapes:
 
 - storage
 - transport
@@ -446,66 +388,70 @@ Privacy must influence:
 - retention
 - failure behavior
 
-The safest option should not require expert configuration.
+Safe defaults provide strong protection from the first run.
+
+Expert configuration can refine policy while preserving the architectural baseline.
 
 ---
 
-## Article XX — Conservative failure is acceptable
+## Article XX — Ambiguity resolves conservatively
 
-When privacy, authority, identity, provenance, or recipient scope is ambiguous, the system may refuse, defer, or ask for clarification.
+Privacy, authority, identity, provenance, and recipient scope use explicit evidence.
 
-It is acceptable for Deaddrop to fail closed.
+Ambiguous cases resolve through one of three bounded outcomes:
 
-It is not acceptable to silently widen access, invent authority, discard provenance, or infer consent for convenience.
+- refuse the operation
+- defer the operation
+- request clarification
+
+The system preserves the narrowest proven scope and the strongest known provenance until authority becomes clear.
+
+Fail-closed behavior is a valid and intentional outcome.
 
 ---
 
 ## Constitutional test for changes
 
-Any material change to Deaddrop should be reviewable against the following questions:
+Every material change to Deaddrop should answer these questions clearly:
 
-1. Does this expose information to a party that did not previously need it?
-2. Does this widen an audience without an explicit decision?
-3. Does this turn existence into discoverability or indexing?
-4. Does this create new behavioral telemetry?
-5. Does this collapse sandbox, memory, coordination history, and source authority?
-6. Does this allow an intermediary to learn more than required?
-7. Does this make human authority less legible?
-8. Does this introduce engagement incentives unrelated to task success?
-9. Does this create hidden centrality?
-10. Does this weaken provenance or artifact integrity?
-11. Does this move a defensive operational mechanism into unnecessary public detail?
-12. If the answer to any of the above is yes, is the tradeoff explicit, narrow, reviewable, and genuinely necessary?
+1. Is the audience explicit?
+2. Is indexing explicitly scoped and authorized?
+3. Is behavioral telemetry purpose-limited and justified?
+4. Are sandbox, memory, coordination history, and source authority still distinct?
+5. Does every intermediary receive the minimum required information?
+6. Is human authority legible?
+7. Are success metrics aligned with task completion?
+8. Are central services bounded and replaceable?
+9. Is provenance preserved?
+10. Is artifact integrity preserved?
+11. Are defensive operational details kept within their proper scope?
+12. Are every tradeoff and authority boundary explicit, narrow, and reviewable?
 
-If the tradeoff cannot be explained clearly, the change should not merge.
+A change is merge-ready when these answers are clear and consistent with the constitution.
 
 ---
 
 ## Amendment rule
 
-This constitution may evolve.
-
-It must not drift casually.
-
-A change to these principles should be treated as an architectural decision, not a routine implementation detail.
+This constitution evolves through deliberate architectural decisions.
 
 A constitutional amendment should:
 
 1. be explicit
 2. explain the problem that requires the change
 3. describe the security and privacy consequences
-4. identify what previous guarantee is being altered
+4. identify the guarantee being altered
 5. receive deliberate human review
 6. remain visible in project history
 
-Implementation convenience alone is not sufficient reason to weaken a constitutional invariant.
+Implementation convenience is evaluated alongside the constitutional guarantees it affects.
 
 ---
 
 ## Final principle
 
-Deaddrop exists to make the network serve intent without requiring the person to surrender ownership, privacy, authority, or attention in exchange.
+Deaddrop exists to make the network serve human intent while preserving ownership, privacy, authority, and attention.
 
-If the system becomes more convenient by becoming more surveillant, more centralized, less inspectable, or less explicit about authority, that is not progress.
+Progress strengthens local ownership, inspectability, explicit authority, provenance, privacy, and bounded infrastructure.
 
-It is architectural regression.
+That is the architecture.
