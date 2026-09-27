@@ -29,6 +29,21 @@ impl MessageKind {
             Self::CapabilityDeclaration => "capability_declaration",
         }
     }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "message" => Some(Self::Message),
+            "request" => Some(Self::Request),
+            "response" => Some(Self::Response),
+            "handoff" => Some(Self::Handoff),
+            "task_claim" => Some(Self::TaskClaim),
+            "checkpoint" => Some(Self::Checkpoint),
+            "acknowledgment" => Some(Self::Acknowledgment),
+            "error" => Some(Self::Error),
+            "capability_declaration" => Some(Self::CapabilityDeclaration),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
