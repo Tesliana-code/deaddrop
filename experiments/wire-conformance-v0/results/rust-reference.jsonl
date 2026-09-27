@@ -1,0 +1,119 @@
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P01-golden-ascii"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P02-correlation-null"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P03-empty-body"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P04-refs-ordered-unsorted"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P05-refs-duplicate"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P06-refs-empty"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P11-kind-message"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P12-kind-request"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P13-kind-response"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P14-kind-handoff"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P15-kind-task_claim"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P16-kind-checkpoint"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P17-kind-acknowledgment"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P18-kind-error"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P19-kind-capability_declaration"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P20-quote-backslash"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P21-short-escapes"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P22-c0-u-escapes"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P23-del-c1-raw"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P24-nfc"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P25-nfd"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P26-u2028-u2029"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P27-emoji"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P28-html-chars"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P29-solidus"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P30-bom-nonchar-in-body"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P31-nonascii-ids"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P32-self-addressed"}
+{"class":"positive","decode":"accept","detail":"","encode":"match","encoded_hex":null,"fields_match":true,"impl":"rust-reference","pass":true,"type":"vector","vector":"P33-mixed"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N01-field-reordered"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N02-pretty"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N03-trailing-newline"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N04-leading-space"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N05-space-after-colon"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: duplicate field `body` at line 1 column 185","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N06-dup-key-same"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: duplicate field `body` at line 1 column 185","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N07-dup-key-diff"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: duplicate field `protocol` at line 1 column 35","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N08-dup-protocol"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: duplicate field `to` at line 1 column 107","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N09-dup-to-diff"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N10-u0041"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N11-escaped-solidus"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N12-uppercase-hex"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N13-escaped-nonascii"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N14-escaped-lt"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N15-escaped-amp"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N16-escaped-u2028"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N17-surrogate-pair-escape"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: unexpected end of hex escape at line 1 column 166","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N18-lone-high-surrogate"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: lone leading surrogate in hex escape at line 1 column 165","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N19-lone-low-surrogate"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N20-u000a-for-newline"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N21-escaped-del"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: control character (\\u0000-\\u001F) found while parsing a string at line 1 column 160","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N22-raw-c0"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid unicode code point at line 1 column 162","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N23-overlong-utf8"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid unicode code point at line 1 column 163","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N24-raw-surrogate-utf8"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid unicode code point at line 1 column 161","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N25-invalid-byte-ff"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid unicode code point at line 1 column 162","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N26-truncated-utf8"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: expected value at line 1 column 1","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N27-bom-prefix"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: key must be a string at line 1 column 2","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N28-utf16le"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: unknown field `surprise`, expected one of `protocol`, `id`, `from`, `to`, `kind`, `correlation_id`, `body`, `artifact_refs` at line 1 column 281","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N29-unknown-field"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N30-missing-correlation"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: missing field `artifact_refs` at line 1 column 179","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N31-missing-artifact-refs"}
+{"class":"negative","decode":"reject","detail":"invalid wire field correlation_id: \"\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N32-correlation-empty"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid type: null, expected a sequence at line 1 column 199","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N33-artifact-refs-null"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid type: null, expected a string at line 1 column 162","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N34-body-null"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid type: integer `42`, expected a string at line 1 column 160","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N35-body-number"}
+{"class":"negative","decode":"reject","detail":"unsupported wire protocol: \"deaddrop/1\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N36-protocol-v1"}
+{"class":"negative","decode":"reject","detail":"unsupported wire protocol: \"Deaddrop/0\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N37-protocol-case"}
+{"class":"negative","decode":"reject","detail":"unsupported wire protocol: \"deaddrop/00\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N38-protocol-00"}
+{"class":"negative","decode":"reject","detail":"unknown wire message kind: \"Message\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N39-kind-case"}
+{"class":"negative","decode":"reject","detail":"unknown wire message kind: \"task-claim\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N40-kind-hyphen"}
+{"class":"negative","decode":"reject","detail":"unknown wire message kind: \"taskClaim\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N41-kind-camel"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N42-ref-uppercase"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N43-ref-plus-sign"}
+{"class":"negative","decode":"reject","detail":"invalid wire field artifact_refs: \"SHA256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N44-ref-scheme-case"}
+{"class":"negative","decode":"reject","detail":"invalid wire field artifact_refs: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N45-ref-63"}
+{"class":"negative","decode":"reject","detail":"invalid wire field artifact_refs: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N46-ref-65"}
+{"class":"negative","decode":"reject","detail":"invalid wire field artifact_refs: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N47-ref-bare-hex"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: unknown field `Body`, expected one of `protocol`, `id`, `from`, `to`, `kind`, `correlation_id`, `body`, `artifact_refs` at line 1 column 157","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N48-key-case"}
+{"class":"negative","decode":"reject","detail":"wire envelope is valid JSON but not canonical V0 encoding","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N49-key-escaped"}
+{"class":"negative","decode":"reject","detail":"invalid wire field id: \"\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N50-id-empty"}
+{"class":"negative","decode":"reject","detail":"invalid wire field id: \"\\u{a0}msg\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N51-id-leading-nbsp"}
+{"class":"negative","decode":"reject","detail":"invalid wire field id: \"msg\\u{3000}\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N52-id-trailing-ideographic-space"}
+{"class":"negative","decode":"reject","detail":"invalid wire field id: \"m\\u{85}g\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N53-id-c1-nel"}
+{"class":"negative","decode":"reject","detail":"invalid wire field id: \"m\\ng\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N54-id-escaped-lf"}
+{"class":"negative","decode":"reject","detail":"invalid wire field from: \"node-a \"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N55-from-trailing-space"}
+{"class":"negative","decode":"reject","detail":"invalid wire field correlation_id: \"\\tcorr\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N56-correlation-leading-tab"}
+{"class":"negative","decode":"reject","detail":"invalid wire field id: \"msg\\u{2028}\"","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N57-id-trailing-u2028"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid length 1, expected struct WireEnvelopeV0 with 8 elements at line 1 column 14","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N58-top-level-array"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: invalid type: null, expected struct WireEnvelopeV0 at line 1 column 4","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N59-json-null"}
+{"class":"negative","decode":"reject","detail":"wire JSON error: EOF while parsing a value at line 1 column 0","encode":"n/a","encoded_hex":null,"fields_match":null,"impl":"rust-reference","pass":true,"type":"vector","vector":"N60-empty-input"}
+{"codepoint":0,"error":null,"impl":"rust-reference","literal_hex":"225c753030303022","type":"escape"}
+{"codepoint":1,"error":null,"impl":"rust-reference","literal_hex":"225c753030303122","type":"escape"}
+{"codepoint":8,"error":null,"impl":"rust-reference","literal_hex":"225c6222","type":"escape"}
+{"codepoint":9,"error":null,"impl":"rust-reference","literal_hex":"225c7422","type":"escape"}
+{"codepoint":10,"error":null,"impl":"rust-reference","literal_hex":"225c6e22","type":"escape"}
+{"codepoint":11,"error":null,"impl":"rust-reference","literal_hex":"225c753030306222","type":"escape"}
+{"codepoint":12,"error":null,"impl":"rust-reference","literal_hex":"225c6622","type":"escape"}
+{"codepoint":13,"error":null,"impl":"rust-reference","literal_hex":"225c7222","type":"escape"}
+{"codepoint":31,"error":null,"impl":"rust-reference","literal_hex":"225c753030316622","type":"escape"}
+{"codepoint":32,"error":null,"impl":"rust-reference","literal_hex":"222022","type":"escape"}
+{"codepoint":34,"error":null,"impl":"rust-reference","literal_hex":"225c2222","type":"escape"}
+{"codepoint":38,"error":null,"impl":"rust-reference","literal_hex":"222622","type":"escape"}
+{"codepoint":39,"error":null,"impl":"rust-reference","literal_hex":"222722","type":"escape"}
+{"codepoint":47,"error":null,"impl":"rust-reference","literal_hex":"222f22","type":"escape"}
+{"codepoint":60,"error":null,"impl":"rust-reference","literal_hex":"223c22","type":"escape"}
+{"codepoint":62,"error":null,"impl":"rust-reference","literal_hex":"223e22","type":"escape"}
+{"codepoint":92,"error":null,"impl":"rust-reference","literal_hex":"225c5c22","type":"escape"}
+{"codepoint":127,"error":null,"impl":"rust-reference","literal_hex":"227f22","type":"escape"}
+{"codepoint":128,"error":null,"impl":"rust-reference","literal_hex":"22c28022","type":"escape"}
+{"codepoint":133,"error":null,"impl":"rust-reference","literal_hex":"22c28522","type":"escape"}
+{"codepoint":159,"error":null,"impl":"rust-reference","literal_hex":"22c29f22","type":"escape"}
+{"codepoint":160,"error":null,"impl":"rust-reference","literal_hex":"22c2a022","type":"escape"}
+{"codepoint":233,"error":null,"impl":"rust-reference","literal_hex":"22c3a922","type":"escape"}
+{"codepoint":769,"error":null,"impl":"rust-reference","literal_hex":"22cc8122","type":"escape"}
+{"codepoint":8232,"error":null,"impl":"rust-reference","literal_hex":"22e280a822","type":"escape"}
+{"codepoint":8233,"error":null,"impl":"rust-reference","literal_hex":"22e280a922","type":"escape"}
+{"codepoint":65279,"error":null,"impl":"rust-reference","literal_hex":"22efbbbf22","type":"escape"}
+{"codepoint":65533,"error":null,"impl":"rust-reference","literal_hex":"22efbfbd22","type":"escape"}
+{"codepoint":65535,"error":null,"impl":"rust-reference","literal_hex":"22efbfbf22","type":"escape"}
+{"codepoint":128512,"error":null,"impl":"rust-reference","literal_hex":"22f09f988022","type":"escape"}

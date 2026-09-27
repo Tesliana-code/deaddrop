@@ -1,0 +1,12 @@
+[package]
+name = "wire-conformance-v0-rust"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Standalone: deliberately not a member of the repository workspace.
+[workspace]
+
+[dependencies]
+deaddrop-protocol = { path = "../../../crates/deaddrop-protocol" }
+serde_json = "1.0.151"
