@@ -34,6 +34,18 @@ impl DeliveryEventKind {
             Self::DeliveryExpired => "delivery_expired",
         }
     }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "transport_accepted" => Some(Self::TransportAccepted),
+            "recipient_received" => Some(Self::RecipientReceived),
+            "recipient_verified" => Some(Self::RecipientVerified),
+            "recipient_acknowledged" => Some(Self::RecipientAcknowledged),
+            "delivery_failed" => Some(Self::DeliveryFailed),
+            "delivery_expired" => Some(Self::DeliveryExpired),
+            _ => None,
+        }
+    }
 }
 
 /// One uniquely identifiable delivery observation.
