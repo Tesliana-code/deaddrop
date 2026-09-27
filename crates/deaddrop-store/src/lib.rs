@@ -1,4 +1,10 @@
-//! Deaddrop persistence boundary.
+//! Deaddrop persistence boundaries.
 //!
-//! This crate stores durable state without becoming source authority
-//! for domains owned elsewhere.
+//! Stores preserve durable evidence without becoming semantic or source
+//! authority for domains owned elsewhere.
+
+mod delivery_events;
+
+pub use delivery_events::{
+    AppendOutcome, DeliveryEventStore, InMemoryDeliveryEventStore, InMemoryDeliveryEventStoreError,
+};
