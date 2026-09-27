@@ -2,22 +2,11 @@
 
 > **The interface with the dead internet.**
 
-The web was built around a human operating a browser.
+The web grew around a human operating a browser.
 
-Open a page.  
-Find the menu.  
-Accept the cookies.  
-Close the popup.  
-Search.  
-Open five tabs.  
-Compare.  
-Fill the form.  
-Prove you are human.  
-Do it again tomorrow.
+Deaddrop begins with a different interface:
 
-Deaddrop starts from a different assumption:
-
-**humans should express intent; software should do the walking.**
+**humans express intent; software does the walking.**
 
 ```text
 human
@@ -33,47 +22,38 @@ evidence
 result or explicitly authorized action
 ```
 
-The page is no longer the interface.
-
 **The interface is intent.**
 
 ---
 
 ## Why Deaddrop
 
-The internet is not dead because there are bots on it.
+The network is becoming increasingly machine-traversed.
 
-It becomes interestingly "dead" when humans no longer need to manually traverse interfaces designed around advertising, retention, ranking, tracking, SEO and engagement.
+Agents can query sources, cross systems, verify evidence, negotiate with services, coordinate with peers, and return with the thing a person actually asked for.
 
-The network can remain very alive underneath.
+Deaddrop is an experiment in building that layer around a few strong ideas:
 
-Agents can query it, cross it, verify it, negotiate with it and return with the thing a person actually asked for.
+- intent over navigation
+- task completion over attention capture
+- recipient scope over ambient publication
+- capability routing over popularity
+- local ownership over platform dependency
+- provenance over ambiguity
+- explicit authority over implied authority
+- inspectable protocol over hidden protocol behavior
 
-Deaddrop is an experiment in building that layer without rebuilding the worst parts of the web.
+**Deaddrop is an instrument.**
 
-No feed.
-
-No followers.
-
-No trending page.
-
-No engagement score.
-
-No recommendation treadmill.
-
-No reason to make a person stare at the product longer than necessary.
-
-**Deaddrop is an instrument, not a destination.**
+You use it to accomplish something, receive the result, and move on.
 
 ---
 
 ## The dead-drop primitive
 
-A dead drop is not a broadcast.
+A dead drop is recipient-scoped exchange.
 
-It is something intentionally left for a recipient.
-
-That turns out to be a useful primitive for an agent-native network.
+Something is intentionally prepared for a specific recipient, delivered through a transport, verified, and acknowledged.
 
 ```text
 sender
@@ -95,19 +75,17 @@ A message can point to an artifact by content identity:
 sha256:9f2c…
 ```
 
-The hash is not decoration. It means both sides can refer to **the same exact object** without treating a mutable location, filename or UI page as truth.
+The hash gives both sides a stable reference to **the same exact object** across storage systems, filenames, interfaces, and transports.
 
-The network should optimize for a successful handoff, not for attention.
+The network optimizes for a successful handoff.
 
 ---
 
-## Share messages, not sandboxes
+## Share messages. Keep sandboxes private.
 
-Agents do not need to live inside one giant shared runtime.
+A sandbox is a workshop.
 
-A sandbox is a workshop, not a communal kitchen.
-
-Deaddrop treats coordination as explicit exchange:
+Coordination happens through explicit exchange:
 
 - messages
 - artifact references
@@ -117,15 +95,15 @@ Deaddrop treats coordination as explicit exchange:
 - checkpoints
 - capability declarations
 
-The useful rule is:
+The operating rule is:
 
-> **Share messages, not sandboxes.**
+> **Share messages. Keep sandboxes private.**
 
-And its stronger version:
+And the distributed version:
 
-> **Agents should meet by reference, not by cohabitation.**
+> **Agents meet by reference across isolated runtimes.**
 
-This keeps private working state private, makes handoffs inspectable, and allows different agents, models, machines and runtimes to cooperate without pretending they are one process.
+Private working state stays private. Handoffs stay inspectable. Different agents, models, machines, and runtimes cooperate through stable contracts.
 
 ---
 
@@ -133,11 +111,9 @@ This keeps private working state private, makes handoffs inspectable, and allows
 
 A Deaddrop node belongs to its operator.
 
-Its local state should remain useful without a central platform.
+Its local state remains useful and meaningful on its own.
 
-The network extends the node. It does not own it.
-
-A rough mental model:
+The network extends the node.
 
 ```text
 LOCAL NODE
@@ -159,31 +135,25 @@ NETWORK
 └── source systems
 ```
 
-The long-term architecture may use several transports. The important part is that transport is not confused with authority, identity or ownership.
+Transport, authority, identity, and ownership remain separate concepts.
+
+This separation keeps the architecture portable across protocols, runtimes, and deployment models.
 
 ---
 
-## Surveillance is not the business model
+## Privacy is architectural
 
-Deaddrop rejects surveillance-by-default as an architectural assumption.
-
-Creating something does not mean publishing it.
-
-Persisting something does not mean indexing it.
-
-Sending something to one recipient does not mean exposing it to a hidden audience.
+Deaddrop treats publication, indexing, sharing, storage, and authorization as distinct actions.
 
 These are core laws:
 
-> **Nothing is public merely because it exists.**
+> **Publicness is explicit.**
 
-> **Existence is not consent to index.**
+> **Indexing requires explicit scope and authority.**
 
-And for infrastructure:
+> **Infrastructure learns the minimum required for its role.**
 
-> **The infrastructure should know less than the participants.**
-
-That principle pushes the design toward:
+That principle shapes the system toward:
 
 - local-first state
 - recipient-scoped communication
@@ -195,32 +165,24 @@ That principle pushes the design toward:
 - provenance
 - least privilege
 - explicit authorization for consequential actions
-- no behavioral telemetry as a product requirement
-- no engagement graph disguised as infrastructure
+- purpose-limited observability
+- task-oriented interfaces
 
-A relay should not need message plaintext.
+A relay carries messages with minimal knowledge.
 
-An artifact store should not need to know what an artifact means.
+An artifact store preserves bytes and integrity.
 
-Discovery should not require reading private conversations.
+Discovery operates within explicit scope.
 
-An agent should not receive capabilities it does not need.
+An agent receives the capabilities required for its task.
 
-Privacy is not a settings page. It is a constraint on the shape of the system.
+Privacy shapes the architecture from the beginning.
 
 ---
 
-## Capability graph, not popularity graph
+## Capability graph
 
-The social web asks:
-
-```text
-Who has the most followers?
-What is trending?
-What keeps people engaged?
-```
-
-An intent network should ask:
+An intent network asks:
 
 ```text
 Who can do this?
@@ -230,50 +192,52 @@ Which artifact proves the claim?
 Which peer can accept this handoff?
 ```
 
-That is a **capability graph**, not a popularity graph.
+That is a **capability graph**.
 
-The goal is routing, verification and action.
-
-Not influence.
+Its purpose is routing, verification, delegation, and action.
 
 ---
 
 ## Authority stays explicit
 
-An agent saying something does not make it true.
-
-A cached result does not become a source of truth because it is convenient.
-
-A coordination message does not become authority merely because it was signed.
-
-Deaddrop keeps several kinds of state conceptually separate:
+Deaddrop separates kinds of state by role:
 
 ```text
 LOCAL SANDBOX
 private ephemeral working state
 
 DURABLE MEMORY
-long-lived knowledge
+long-lived retained knowledge
 
 COORDINATION HISTORY
 messages, ACKs, claims, handoffs, checkpoints
 
 SOURCE AUTHORITY
 the repository / database / document / service
-that actually owns the fact
+that owns the fact
 ```
 
-This distinction matters especially when agents cooperate across machines and runtimes.
+Each domain names its source of authority.
+
+Messages carry claims and evidence.
+
+Memory carries retained knowledge.
+
+Projections carry derived views.
+
+Coordination history carries what participants exchanged.
+
+Source systems retain ownership of the facts they govern.
+
+This distinction becomes especially important when agents cooperate across machines and runtimes.
 
 ---
 
 ## Human authority is part of the architecture
 
-Agents can search, compare, summarize, prepare, route and coordinate.
+Agents can search, compare, summarize, prepare, route, verify, and coordinate.
 
-That does not mean every possible action should become autonomous.
-
-Consequential mutations should cross an explicit authorization boundary.
+Consequential actions cross an explicit authorization boundary.
 
 Examples include:
 
@@ -284,17 +248,17 @@ Examples include:
 - external commitments
 - privilege changes
 
-The person keeps the final word.
+The person retains the final word where human authorization is required.
 
-Automation is useful precisely because authority remains legible.
+Automation remains powerful because authority remains legible.
 
 ---
 
-## What this public repository is for
+## Public architecture
 
 This repository is the **open, inspectable substrate** of Deaddrop.
 
-Appropriate public work includes:
+Public work includes:
 
 - local-first client architecture
 - peer and identity models
@@ -311,19 +275,21 @@ Appropriate public work includes:
 - accessibility
 - offline behavior
 
-Security-critical foundations should be inspectable.
+Security-critical foundations stay inspectable.
 
-Cryptography should not depend on obscurity.
+Cryptographic choices stay reviewable.
 
-Protocol invariants should be reviewable.
+Protocol invariants stay testable.
 
-Interoperability should be documented.
+Interoperability stays documented.
 
-### What is deliberately not documented here
+### Defensive operations
 
-Operational defensive mechanisms are a separate concern and are intentionally kept out of the public repository.
+Operational defense follows a separate need-to-know boundary.
 
-The public project can state its security guarantees, threat model and protocol assumptions without publishing the exact detection heuristics, thresholds, quarantine logic, incident-response mechanics or other defensive operational details used to protect deployed systems.
+The public project documents security guarantees, threat classes, trust assumptions, protocol constraints, and interoperability behavior.
+
+Production defense keeps deployment-specific heuristics, thresholds, quarantine triggers, anomaly scoring, defensive routing, decoys, incident playbooks, and live countermeasures within their operational scope.
 
 In short:
 
@@ -331,28 +297,9 @@ In short:
 
 ---
 
-## What Deaddrop is not
-
-Deaddrop is not:
-
-- another social network
-- an AI feed
-- a creator platform
-- a follower graph
-- an ad network
-- a recommendation engine
-- an SEO surface
-- a surveillance product
-- a shared mega-sandbox for autonomous agents
-- a justification for removing humans from consequential decisions
-
-If the project ever starts measuring success by time-on-app, something has gone wrong.
-
----
-
 ## First milestone
 
-The first useful Deaddrop does not need to reinvent the entire internet.
+The first useful Deaddrop is intentionally small.
 
 Two nodes are enough.
 
@@ -374,15 +321,15 @@ verifies
 ACKs
 ```
 
-And a local agent should be able to use that mechanism through a very small interface.
+A local agent uses the same mechanism through a small interface.
 
-That gives us the heart of the system before we add more elaborate transport, discovery or federation.
+That gives us the heart of the system before transport, discovery, and federation expand.
 
 ---
 
 ## Project shape
 
-The implementation is expected to grow around a small local core:
+The implementation grows around a small local core:
 
 ```text
 Deaddrop
@@ -396,23 +343,23 @@ Deaddrop
 └── local agent interface
 ```
 
-We favor boring, inspectable primitives over magical infrastructure.
+We favor boring, inspectable primitives.
 
-The desktop client should feel like an instrument.
+The desktop client should feel like an instrument:
 
-Small. Fast. Quiet.
+**small, fast, quiet, task-shaped.**
 
 You open it because you intend to do something.
 
-Then you leave.
+You leave when the task is complete.
 
 ---
 
 ## Contributing
 
-Deaddrop is public because the protocol, privacy model and interoperability layer should survive contact with people who did not design them.
+Deaddrop is public so the protocol, privacy model, and interoperability layer can survive serious external review.
 
-Useful contributions will eventually include:
+Useful contributions include:
 
 - local-first storage
 - native desktop work
@@ -428,18 +375,18 @@ Useful contributions will eventually include:
 - threat modeling
 - documentation
 
-Things we do **not** want to optimize for:
+Project quality is measured through:
 
-- engagement
-- retention
-- virality
-- follower growth
-- popularity ranking
-- behavioral advertising
-- hidden telemetry
-- dark patterns
-- unsolicited bulk messaging
-- attention capture
+- task completion
+- correctness
+- integrity
+- privacy
+- interoperability
+- inspectability
+- reliability
+- accessibility
+- efficient handoff
+- clear authority
 
 A fuller contribution guide will land before implementation work opens broadly.
 
@@ -451,7 +398,7 @@ A fuller contribution guide will land before implementation work opens broadly.
 
 Right now the architecture matters more than the feature count.
 
-We are defining the primitives, trust boundaries and invariants before making the system large enough to become confused about what it is.
+We are defining primitives, trust boundaries, and invariants first, then expanding implementation around them.
 
 That is intentional.
 
@@ -459,18 +406,17 @@ That is intentional.
 
 ## One sentence
 
-> **Deaddrop is a local-first network shell where humans express intent, agents coordinate by message and immutable reference, and the infrastructure is designed to know less than the participants.**
+> **Deaddrop is a local-first network shell where humans express intent, agents coordinate by message and immutable reference, and infrastructure learns the minimum required to complete the handoff.**
 
 ---
 
 ## Origin
 
-Deaddrop grew out of a conversation about what happens when humans stop browsing the web like it is 1996 and let agents traverse the network on their behalf.
+Deaddrop grew out of a conversation about what happens when humans let agents traverse the network on their behalf.
 
 The longer version became the essay **“Deaddrop.”**[^1]
 
 [^1]: Ivana Vrtaric, *Deaddrop*, Medium, 2026 — https://medium.com/@ivavrtaric/deaddrop-fa09f97dba93
-
 
 ## Architecture documentation
 
