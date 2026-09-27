@@ -1,3 +1,8 @@
 //! Deaddrop domain semantics and authority boundaries.
 //!
-//! This crate must not become a transport, persistence, or UI layer.
+//! This crate derives domain meaning from protocol evidence without becoming
+//! a transport, persistence, or UI layer.
+
+mod delivery_projection;
+
+pub use delivery_projection::{DeliveryProjection, DeliveryProjectionError};

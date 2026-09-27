@@ -89,6 +89,7 @@ macro_rules! opaque_id {
 
 opaque_id!(NodeId);
 opaque_id!(MessageId);
+opaque_id!(DeliveryEventId);
 opaque_id!(CorrelationId);
 
 #[cfg(test)]

@@ -5,6 +5,9 @@ version = 4
 [[package]]
 name = "deaddrop-core"
 version = "0.1.0"
+dependencies = [
+ "deaddrop-protocol",
+]
 
 [[package]]
 name = "deaddrop-protocol"

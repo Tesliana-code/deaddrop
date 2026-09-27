@@ -1,4 +1,4 @@
-use crate::{MessageId, NodeId};
+use crate::{DeliveryEventId, MessageId, NodeId};
 
 /// Append-only evidence about what happened to a message during delivery.
 ///
@@ -6,27 +6,20 @@ use crate::{MessageId, NodeId};
 /// application-level success merely because transport succeeded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeliveryEventKind {
-    /// A transport accepted responsibility for attempting delivery.
     TransportAccepted,
-
-    /// The intended recipient node accepted the message bytes/envelope.
     RecipientReceived,
-
-    /// The recipient successfully verified protocol integrity/authenticity.
     RecipientVerified,
 
-    /// The recipient explicitly acknowledged the message at protocol level.
+    /// Protocol-level acknowledgment only.
     ///
     /// This does not imply that a requested task or external action succeeded.
     RecipientAcknowledged,
 
-    /// A delivery attempt failed.
+    /// Evidence that a delivery operation failed.
     ///
-    /// This is evidence about an attempt, not necessarily a terminal state;
-    /// another attempt may occur later.
+    /// This does not imply permanent failure; later evidence may show success.
     DeliveryFailed,
 
-    /// Delivery was abandoned because its permitted delivery window expired.
     DeliveryExpired,
 }
 
@@ -43,24 +36,35 @@ impl DeliveryEventKind {
     }
 }
 
-/// A statement by one protocol participant about a delivery observation.
+/// One uniquely identifiable delivery observation.
 ///
-/// Ordering, persistence sequence, timestamps, and signatures are deliberately
-/// not frozen in V0 yet. Those belong to later protocol/storage decisions.
+/// Event identity makes projection replay idempotent without requiring
+/// timestamps or global ordering to be frozen in V0.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeliveryEvent {
+    id: DeliveryEventId,
     message_id: MessageId,
     reported_by: NodeId,
     kind: DeliveryEventKind,
 }
 
 impl DeliveryEvent {
-    pub fn new(message_id: MessageId, reported_by: NodeId, kind: DeliveryEventKind) -> Self {
+    pub fn new(
+        id: DeliveryEventId,
+        message_id: MessageId,
+        reported_by: NodeId,
+        kind: DeliveryEventKind,
+    ) -> Self {
         Self {
+            id,
             message_id,
             reported_by,
             kind,
         }
+    }
+
+    pub fn id(&self) -> &DeliveryEventId {
+        &self.id
     }
 
     pub fn message_id(&self) -> &MessageId {
@@ -80,6 +84,10 @@ impl DeliveryEvent {
 mod tests {
     use super::*;
 
+    fn event_id(value: &str) -> DeliveryEventId {
+        DeliveryEventId::parse(value).expect("valid delivery event id")
+    }
+
     fn message_id(value: &str) -> MessageId {
         MessageId::parse(value).expect("valid message id")
     }
@@ -91,11 +99,13 @@ mod tests {
     #[test]
     fn transport_acceptance_is_explicit_evidence() {
         let event = DeliveryEvent::new(
+            event_id("delivery-1"),
             message_id("msg-1"),
             node("relay-a"),
             DeliveryEventKind::TransportAccepted,
         );
 
+        assert_eq!(event.id().as_str(), "delivery-1");
         assert_eq!(event.message_id().as_str(), "msg-1");
         assert_eq!(event.reported_by().as_str(), "relay-a");
         assert_eq!(event.kind(), DeliveryEventKind::TransportAccepted);
@@ -110,20 +120,23 @@ mod tests {
     }
 
     #[test]
-    fn failure_is_an_event_not_a_terminal_message_mutation() {
+    fn failure_is_evidence_not_terminal_message_mutation() {
         let failed = DeliveryEvent::new(
+            event_id("delivery-2"),
             message_id("msg-2"),
             node("relay-a"),
             DeliveryEventKind::DeliveryFailed,
         );
 
         let later_received = DeliveryEvent::new(
+            event_id("delivery-3"),
             message_id("msg-2"),
             node("node-b"),
             DeliveryEventKind::RecipientReceived,
         );
 
         assert_eq!(failed.message_id(), later_received.message_id());
+        assert_ne!(failed.id(), later_received.id());
         assert_eq!(failed.kind(), DeliveryEventKind::DeliveryFailed);
         assert_eq!(later_received.kind(), DeliveryEventKind::RecipientReceived);
     }
