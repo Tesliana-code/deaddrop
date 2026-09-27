@@ -17,5 +17,6 @@ version = "0.1.0"
 name = "deaddrop-store"
 version = "0.1.0"
 dependencies = [
+ "deaddrop-core",
  "deaddrop-protocol",
 ]

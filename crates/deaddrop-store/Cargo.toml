@@ -5,3 +5,6 @@ edition = "2024"
 
 [dependencies]
 deaddrop-protocol = { path = "../deaddrop-protocol" }
+
+[dev-dependencies]
+deaddrop-core = { path = "../deaddrop-core" }
