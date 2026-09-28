@@ -135,6 +135,7 @@ impl SqliteMessageStore {
         Ok(Some(envelope))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn rebuild_envelope(
         transaction: &Transaction<'_>,
         message_id: &MessageId,
