@@ -410,6 +410,34 @@ Fail-closed behavior is a valid and intentional outcome.
 
 ---
 
+## Article XXI — The Ten Deaddrop Commandments
+
+> **These are product-level invariants. Implementation convenience does not override them.**
+
+1. **Identity stays independent.** Core participation does not depend on Google, Microsoft, Meta, Apple, or any other third-party identity provider.
+
+2. **No mandatory cloud account.** A person can create and operate a Deaddrop node without registering an account with a vendor-operated cloud service.
+
+3. **Local identity and local state are primary.** The operator owns the durable local identity, relationships, history, artifacts, and policy that define their node.
+
+4. **Relationships begin intentionally.** Peer relationships start through explicit invitation, pairing, or another authorized exchange. Contact is established by human or delegated intent, not by inferred social proximity.
+
+5. **Private networks come before global social graphs.** Recipient-scoped exchange and small trusted networks are the default social shape. Discovery remains scoped and purpose-bound. A global people graph is not a core substrate.
+
+6. **Capabilities are granted, never assumed.** Access, delegation, discovery, routing authority, and action rights are explicit, narrow, inspectable, and revocable.
+
+7. **Attention is not the business model.** Deaddrop does not optimize for engagement, virality, time-on-product, algorithmic feeds, recommendation-driven attention, or dark-pattern retention. Product success is completed work and trustworthy communication.
+
+8. **Behavioral profiling is outside the product contract.** Reliability telemetry is purpose-limited and minimized. It does not become a behavioral dossier, advertising profile, or shadow identity.
+
+9. **Network and trust state stay legible.** The operator can distinguish meaningful connection and trust conditions such as local or remote, direct or relayed, verified or unverified, and the authority under which a peer or service is acting.
+
+10. **Supporting services remain replaceable.** Loss, shutdown, acquisition, policy change, or failure of a relay, discovery service, vendor, or hosted component must not take the operator's local identity, local history, contact relationships, or portable state with it.
+
+These commandments constrain product design, defaults, integrations, metrics, identity systems, discovery, social features, and infrastructure choices.
+
+---
+
 ## Constitutional test for changes
 
 Every material change to Deaddrop should answer these questions clearly:
@@ -426,6 +454,10 @@ Every material change to Deaddrop should answer these questions clearly:
 10. Is artifact integrity preserved?
 11. Are defensive operational details kept within their proper scope?
 12. Are every tradeoff and authority boundary explicit, narrow, and reviewable?
+13. Can core participation work without a third-party identity provider or mandatory vendor cloud account?
+14. Are peer relationships, discovery, and audience expansion explicit and scoped?
+15. Does the product avoid engagement, virality, recommendation-driven attention, and behavioral profiling as product goals?
+16. Would the operator retain identity, history, relationships, and portable state if a supporting service disappeared?
 
 A change is merge-ready when these answers are clear and consistent with the constitution.
 
