@@ -392,6 +392,34 @@ A fuller contribution guide will land before implementation work opens broadly.
 
 ---
 
+## The Ten Core Commandments
+
+These are product laws, not preferences.
+
+1. **No vendor identity dependency.** Deaddrop must not require Google, Microsoft, Meta, Apple, or any other third-party identity provider.
+
+2. **No mandatory cloud account.** Core participation must work without registering with a vendor-operated cloud service.
+
+3. **Local identity and local state are primary.** Your identity, relationships, history, artifacts, and policy belong first to your node.
+
+4. **Contact begins by explicit invitation or pairing.** Peer relationships are created intentionally, not inferred from scraped contacts, social proximity, or platform suggestions.
+
+5. **Small private networks come before global social graphs.** Recipient-scoped communication is the default social shape. Global people discovery is not the substrate.
+
+6. **Capabilities are shared deliberately, never assumed.** Access, delegation, discovery, routing, and action rights are explicit, narrow, inspectable, and revocable.
+
+7. **No engagement metrics.** Deaddrop does not optimize for time-on-product, streaks, retention loops, virality, or attention capture.
+
+8. **No recommendation engine.** No algorithm chooses people, content, conversations, or actions in order to maximize engagement. Discovery stays scoped and purpose-bound.
+
+9. **No behavioral profiling.** Reliability telemetry stays minimal and purpose-limited. It must not become an advertising profile, behavioral dossier, or shadow identity.
+
+10. **Network and trust state stay visible.** The operator can tell when a connection is local or remote, direct or relayed, verified or unverified, and what authority a peer or service is acting under.
+
+These constraints apply across clients, relays, services, discovery, identity, metrics, integrations, and future product surfaces.
+
+---
+
 ## Status
 
 **Very early.**
