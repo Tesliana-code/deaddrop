@@ -5,6 +5,7 @@ members = [
     "crates/deaddrop-core",
     "crates/deaddrop-store",
     "crates/deaddrop-cli",
+    "crates/deaddrop-node",
 ]
 
 [workspace.package]

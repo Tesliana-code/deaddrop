@@ -1,0 +1,20 @@
+[package]
+name = "deaddrop-node"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "deaddrop-node"
+path = "src/main.rs"
+
+[dependencies]
+deaddrop-protocol = { path = "../deaddrop-protocol" }
+deaddrop-store = { path = "../deaddrop-store" }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
+serde_json = "1.0.151"
+tokio = { version = "1.53.1", features = ["macros", "net", "rt-multi-thread"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tokio = { version = "1.53.1", features = ["io-util"] }
+tower = { version = "0.5", features = ["util"] }
