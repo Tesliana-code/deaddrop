@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/deaddrop.png" width="128" alt="Deaddrop">
+</p>
+
 # Deaddrop
 
 > **The interface with the dead internet.**
