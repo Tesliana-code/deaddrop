@@ -1,0 +1,12 @@
+[package]
+name = "deaddrop-cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "deaddrop"
+path = "src/main.rs"
+
+[dependencies]
+deaddrop-protocol = { path = "../deaddrop-protocol" }
+deaddrop-store = { path = "../deaddrop-store" }

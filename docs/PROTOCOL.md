@@ -1,16 +1,14 @@
 # Protocol
 
-**Status:** Pre-implementation public contract  
-**Note:** Field names below are illustrative until a versioned wire schema is frozen.
+**Status:** V0 semantic and wire contract frozen
 
 ## 1. Goals
 
-The Deaddrop protocol should support:
+The Deaddrop protocol supports:
 
 - asynchronous peer messaging
 - explicit sender and recipient identity
-- message authenticity
-- content confidentiality where required
+- stable message identity
 - immutable artifact references
 - provenance
 - correlation across handoffs
@@ -18,84 +16,113 @@ The Deaddrop protocol should support:
 - duplicate-safe processing
 - version evolution
 - transport independence
+- authenticity and integrity through a dedicated cryptographic layer
+- confidentiality through established cryptographic mechanisms where required
 
-## 2. Envelope
+## 2. Envelope V0
 
-Illustrative shape:
+The semantic envelope is:
+
+```text
+EnvelopeV0
+├── protocol
+├── id
+├── from
+├── to
+├── kind
+├── correlation_id?
+├── body
+└── artifact_refs[]
+```
+
+Its canonical V0 wire representation is UTF-8 JSON with this field order:
 
 ```json
 {
   "protocol": "deaddrop/0",
-  "id": "msg_...",
-  "from": "host:harness:project",
-  "to": "host:harness:project",
+  "id": "msg-wire-1",
+  "from": "node-a:agent:deaddrop",
+  "to": "node-b:agent:deaddrop",
   "kind": "handoff",
-  "subject": "Example",
-  "body": "Result and context",
-  "artifact_refs": ["sha256:..."],
-  "correlation_id": "corr_...",
-  "created_at": "...",
-  "signature": "..."
+  "correlation_id": "corr-wire-1",
+  "body": "continue this task",
+  "artifact_refs": [
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ]
 }
 ```
 
-A frozen V0 schema will be defined before interoperability claims are made.
+The canonical encoder emits compact UTF-8 JSON. The example above is formatted for readability.
 
-## 3. Required protocol properties
+The canonical byte contract fixes:
 
-### Stable message identity
+- field names
+- field order
+- UTF-8 JSON encoding
+- explicit `null` for an absent `correlation_id`
+- artifact reference order
+- protocol identifier `deaddrop/0`
+- message-kind vocabulary
 
-A message has an identifier that does not change when retransmitted.
+The decoder reconstructs the semantic envelope and re-encodes it. Acceptance requires byte-for-byte equality with the canonical representation.
 
-### Explicit addressing
+This gives one semantic Envelope V0 one canonical wire representation.
 
-Recipient scope is encoded, not inferred from location or channel membership.
+## 3. Message identity
 
-### Authenticity
+A message keeps the same `MessageId` across retransmission.
 
-Recipients can determine which cryptographic identity signed a message.
+Exact replay is idempotent.
 
-### Integrity
+Reusing one `MessageId` for different envelope content produces an identity conflict at the persistence boundary.
 
-Tampering must be detectable.
+## 4. Explicit addressing
 
-### Confidentiality
+Sender and recipient identity are part of the semantic envelope.
 
-Messages intended to be private must be protected by established cryptographic mechanisms rather than custom encryption.
+Recipient scope is carried directly by the message rather than inferred from transport location, channel membership, or relay behavior.
 
-### Correlation
+## 5. Message classes
 
-Related messages may share a correlation identifier without requiring shared process state.
+V0 defines this stable vocabulary:
 
-### Artifact references
+- `message`
+- `request`
+- `response`
+- `handoff`
+- `task_claim`
+- `checkpoint`
+- `acknowledgment`
+- `error`
+- `capability_declaration`
 
-Large or durable evidence should be referenceable independently of the message body.
+These classes describe coordination semantics.
 
-### Versioning
+Authorization remains an explicit and separate contract.
 
-Protocol version must be explicit.
+## 6. Correlation
 
-## 4. Message classes
+Related messages may share a `CorrelationId`.
 
-Initial semantic classes may include:
+Correlation connects work across request/response, delegation, checkpoints, handoffs, and acknowledgments while preserving independent message identity.
 
-- message
-- request
-- response
-- handoff
-- task_claim
-- checkpoint
-- acknowledgment
-- error
-- capability_declaration
+## 7. Artifact references
 
-These are coordination semantics, not authorization grants by themselves.
+Envelope V0 carries ordered immutable artifact references.
 
-## 5. Delivery semantics
+V0 artifact identity uses canonical SHA-256 references:
 
-V0 should assume asynchronous delivery.
+```text
+sha256:<64 lowercase hexadecimal characters>
+```
 
-The protocol must tolerate:
+Artifact bytes remain independent from the message body and can move through separate storage or transport paths.
+
+## 8. Delivery semantics
+
+V0 is asynchronous and duplicate-tolerant.
+
+The protocol is designed around:
 
 - delay
 - reconnect
@@ -104,34 +131,92 @@ The protocol must tolerate:
 - receiver restart
 - transport retry
 
-Exactly-once network delivery is not assumed.
+Handlers use idempotent behavior wherever repeated processing could produce side effects.
 
-Handlers should therefore be idempotent where side effects are possible.
+Delivery evidence is append-only and stored separately from the immutable envelope.
 
-## 6. Acknowledgments
+```text
+EnvelopeV0
+    │
+    ├── immutable message
+    │
+    └── delivery evidence
+            │
+            ▼
+      rebuildable projection
+```
 
-An ACK confirms a defined protocol event such as receipt or accepted processing.
+A delivery projection is derived knowledge. The persisted envelope and delivery evidence remain the durable local record.
 
-It must not be overloaded to mean that the recipient agrees with the content or that an external action succeeded.
+## 9. Acknowledgments
 
-Those are separate facts.
+An acknowledgment names a specific protocol event.
 
-## 7. Errors
+Receipt, verification, recipient acknowledgment, task completion, and external side-effect success remain separate facts.
 
-Errors should be explicit enough for interoperability without leaking unnecessary defensive detail.
+This keeps protocol evidence precise across retries and partial failure.
 
-Protocol errors must not become an oracle exposing private operational controls.
+## 10. Canonical wire acceptance
 
-## 8. Transport independence
+A V0 implementation accepts a wire envelope when:
 
-The same semantic envelope should be able to move over multiple transports.
+- the bytes parse as the frozen V0 schema
+- the protocol identifier is `deaddrop/0`
+- identifiers satisfy their protocol constraints
+- the message kind belongs to the V0 vocabulary
+- artifact references parse canonically
+- the schema contains the frozen V0 fields
+- re-encoding produces the exact original bytes
 
-Transport is responsible for delivery.
+This rule turns canonical encoding into an interoperability contract rather than a serializer preference.
 
-The envelope is responsible for meaning.
+## 11. Transport independence
 
-## 9. Security
+The same canonical semantic envelope can move over different transports.
 
-No custom cryptographic primitive should be invented for Deaddrop.
+Transport owns delivery mechanics.
 
-Algorithm suites, key formats, rotation, and encryption details require dedicated ADRs and independent review before production use.
+The envelope owns message meaning.
+
+Relays, local IPC, peer links, mailbox-style services, and future transports can carry the same V0 bytes.
+
+## 12. Persistence contract
+
+A local node can durably preserve:
+
+- the exact Envelope V0
+- ordered artifact references
+- append-only delivery evidence
+
+After restart, the node can reload the exact envelope, reload the exact evidence history, and deterministically rebuild delivery projection state.
+
+```text
+canonical envelope
+        │
+        ├── durable message store
+        │
+        └── durable delivery evidence
+                    │
+                 restart
+                    │
+                    ▼
+          exact local reconstruction
+```
+
+## 13. Cryptographic layer
+
+Canonical Envelope V0 bytes are the input material for the next protocol layer.
+
+That layer will define:
+
+- domain-separated signing transcript
+- signature algorithm suite
+- public-key representation
+- verification behavior
+- key rotation
+- encryption envelope
+- versioned crypto identifiers
+
+Deaddrop uses established, reviewable cryptographic primitives and libraries.
+
+Cryptographic choices receive dedicated ADRs and independent review before production use.
