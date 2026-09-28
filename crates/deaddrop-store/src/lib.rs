@@ -3,10 +3,15 @@
 //! Stores preserve durable evidence without becoming semantic or source
 //! authority for domains owned elsewhere.
 
+mod artifacts;
 mod delivery_events;
 mod messages;
 mod sqlite_delivery_events;
 mod sqlite_messages;
+
+pub use artifacts::{
+    ArtifactPutOutcome, ArtifactStore, FilesystemArtifactStore, FilesystemArtifactStoreError,
+};
 
 pub use delivery_events::{
     AppendOutcome, DeliveryEventStore, InMemoryDeliveryEventStore, InMemoryDeliveryEventStoreError,

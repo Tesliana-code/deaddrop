@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 deaddrop-protocol = { path = "../deaddrop-protocol" }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
+sha2 = "0.10.9"
+tempfile = "3.27.0"
 
 [dev-dependencies]
 deaddrop-core = { path = "../deaddrop-core" }
