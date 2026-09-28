@@ -410,29 +410,29 @@ Fail-closed behavior is a valid and intentional outcome.
 
 ---
 
-## Article XXI — The Ten Deaddrop Commandments
+## Article XXI — The Ten Core Commandments
 
-> **These are product-level invariants. Implementation convenience does not override them.**
+> **These are product laws, not preferences. Implementation convenience does not override them.**
 
-1. **Identity stays independent.** Core participation does not depend on Google, Microsoft, Meta, Apple, or any other third-party identity provider.
+1. **No vendor identity dependency.** Deaddrop must not require Google, Microsoft, Meta, Apple, or any other third-party identity provider.
 
-2. **No mandatory cloud account.** A person can create and operate a Deaddrop node without registering an account with a vendor-operated cloud service.
+2. **No mandatory cloud account.** Core participation must work without registering with a vendor-operated cloud service.
 
-3. **Local identity and local state are primary.** The operator owns the durable local identity, relationships, history, artifacts, and policy that define their node.
+3. **Local identity and local state are primary.** The operator's identity, relationships, history, artifacts, and policy belong first to their node.
 
-4. **Relationships begin intentionally.** Peer relationships start through explicit invitation, pairing, or another authorized exchange. Contact is established by human or delegated intent, not by inferred social proximity.
+4. **Contact begins by explicit invitation or pairing.** Peer relationships are created intentionally, not inferred from scraped contacts, social proximity, or platform suggestions.
 
-5. **Private networks come before global social graphs.** Recipient-scoped exchange and small trusted networks are the default social shape. Discovery remains scoped and purpose-bound. A global people graph is not a core substrate.
+5. **Small private networks come before global social graphs.** Recipient-scoped communication is the default social shape. Global people discovery is not the substrate.
 
-6. **Capabilities are granted, never assumed.** Access, delegation, discovery, routing authority, and action rights are explicit, narrow, inspectable, and revocable.
+6. **Capabilities are shared deliberately, never assumed.** Access, delegation, discovery, routing, and action rights are explicit, narrow, inspectable, and revocable.
 
-7. **Attention is not the business model.** Deaddrop does not optimize for engagement, virality, time-on-product, algorithmic feeds, recommendation-driven attention, or dark-pattern retention. Product success is completed work and trustworthy communication.
+7. **No engagement metrics.** Deaddrop does not optimize for time-on-product, streaks, retention loops, virality, or attention capture.
 
-8. **Behavioral profiling is outside the product contract.** Reliability telemetry is purpose-limited and minimized. It does not become a behavioral dossier, advertising profile, or shadow identity.
+8. **No recommendation engine.** No algorithm chooses people, content, conversations, or actions in order to maximize engagement. Discovery stays scoped and purpose-bound.
 
-9. **Network and trust state stay legible.** The operator can distinguish meaningful connection and trust conditions such as local or remote, direct or relayed, verified or unverified, and the authority under which a peer or service is acting.
+9. **No behavioral profiling.** Reliability telemetry stays minimal and purpose-limited. It must not become an advertising profile, behavioral dossier, or shadow identity.
 
-10. **Supporting services remain replaceable.** Loss, shutdown, acquisition, policy change, or failure of a relay, discovery service, vendor, or hosted component must not take the operator's local identity, local history, contact relationships, or portable state with it.
+10. **Network and trust state stay visible.** The operator can tell when a connection is local or remote, direct or relayed, verified or unverified, and what authority a peer or service is acting under.
 
 These commandments constrain product design, defaults, integrations, metrics, identity systems, discovery, social features, and infrastructure choices.
 
@@ -456,8 +456,10 @@ Every material change to Deaddrop should answer these questions clearly:
 12. Are every tradeoff and authority boundary explicit, narrow, and reviewable?
 13. Can core participation work without a third-party identity provider or mandatory vendor cloud account?
 14. Are peer relationships, discovery, and audience expansion explicit and scoped?
-15. Does the product avoid engagement, virality, recommendation-driven attention, and behavioral profiling as product goals?
-16. Would the operator retain identity, history, relationships, and portable state if a supporting service disappeared?
+15. Does the product avoid engagement, virality, retention loops, and attention capture as product goals?
+16. Does discovery remain scoped and free from engagement-driven recommendation?
+17. Is behavioral telemetry prevented from becoming behavioral profiling?
+18. Would the operator retain identity, history, relationships, and portable state if a supporting service disappeared?
 
 A change is merge-ready when these answers are clear and consistent with the constitution.
 
