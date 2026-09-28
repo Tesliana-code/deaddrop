@@ -410,6 +410,34 @@ Fail-closed behavior is a valid and intentional outcome.
 
 ---
 
+## Article XXI — The Ten Core Commandments
+
+> **These are product laws, not preferences. Implementation convenience does not override them.**
+
+1. **No vendor identity dependency.** Deaddrop must not require Google, Microsoft, Meta, Apple, or any other third-party identity provider.
+
+2. **No mandatory cloud account.** Core participation must work without registering with a vendor-operated cloud service.
+
+3. **Local identity and local state are primary.** The operator's identity, relationships, history, artifacts, and policy belong first to their node.
+
+4. **Contact begins by explicit invitation or pairing.** Peer relationships are created intentionally, not inferred from scraped contacts, social proximity, or platform suggestions.
+
+5. **Small private networks come before global social graphs.** Recipient-scoped communication is the default social shape. Global people discovery is not the substrate.
+
+6. **Capabilities are shared deliberately, never assumed.** Access, delegation, discovery, routing, and action rights are explicit, narrow, inspectable, and revocable.
+
+7. **No engagement metrics.** Deaddrop does not optimize for time-on-product, streaks, retention loops, virality, or attention capture.
+
+8. **No recommendation engine.** No algorithm chooses people, content, conversations, or actions in order to maximize engagement. Discovery stays scoped and purpose-bound.
+
+9. **No behavioral profiling.** Reliability telemetry stays minimal and purpose-limited. It must not become an advertising profile, behavioral dossier, or shadow identity.
+
+10. **Network and trust state stay visible.** The operator can tell when a connection is local or remote, direct or relayed, verified or unverified, and what authority a peer or service is acting under.
+
+These commandments constrain product design, defaults, integrations, metrics, identity systems, discovery, social features, and infrastructure choices.
+
+---
+
 ## Constitutional test for changes
 
 Every material change to Deaddrop should answer these questions clearly:
@@ -426,6 +454,12 @@ Every material change to Deaddrop should answer these questions clearly:
 10. Is artifact integrity preserved?
 11. Are defensive operational details kept within their proper scope?
 12. Are every tradeoff and authority boundary explicit, narrow, and reviewable?
+13. Can core participation work without a third-party identity provider or mandatory vendor cloud account?
+14. Are peer relationships, discovery, and audience expansion explicit and scoped?
+15. Does the product avoid engagement, virality, retention loops, and attention capture as product goals?
+16. Does discovery remain scoped and free from engagement-driven recommendation?
+17. Is behavioral telemetry prevented from becoming behavioral profiling?
+18. Would the operator retain identity, history, relationships, and portable state if a supporting service disappeared?
 
 A change is merge-ready when these answers are clear and consistent with the constitution.
 
