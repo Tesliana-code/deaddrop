@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/deaddrop.png" width="128" alt="Deaddrop">
+  <img src="assets/deaddrop.png" width="240" alt="Deaddrop">
 </p>
 
 # Deaddrop
