@@ -420,7 +420,7 @@ Fail-closed behavior is a valid and intentional outcome.
 
 3. **Local identity and local state are primary.** The operator's identity, relationships, history, artifacts, and policy belong first to their node.
 
-4. **Contact begins by explicit invitation or pairing.** Peer relationships are created intentionally, not inferred from scraped contacts, social proximity, or platform suggestions.
+4. **Peer relationships begin by explicit invitation or pairing.** Peer relationships are created intentionally, not inferred from scraped contacts, social proximity, or platform suggestions.
 
 5. **Small private networks come before global social graphs.** Recipient-scoped communication is the default social shape. Global people discovery is not the substrate.
 
