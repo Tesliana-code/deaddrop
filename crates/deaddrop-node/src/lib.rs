@@ -9,6 +9,13 @@
 //! stored the envelope. It is not delivery evidence of any kind, and no
 //! delivery event is recorded.
 //!
+//! `GET /v0/messages?to=<node-id>` lists the ids of locally stored envelopes
+//! addressed exactly to that recipient. It returns ids only; each envelope is
+//! fetched through `GET /v0/messages/{id}`. The listing records nothing (no
+//! read, ack, or claim state), and its order is enumeration order only, never
+//! semantic, causal, chronological, delivery, or priority order. Like every
+//! route here it assumes the loopback-only local node boundary.
+//!
 //! Artifacts are opaque exact bytes. Identity, layout, and integrity
 //! verification belong to `ArtifactRef` and `FilesystemArtifactStore`; this
 //! adapter only moves bytes and maps outcomes to HTTP. Artifact routes never
@@ -18,11 +25,11 @@ use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::body::Bytes;
-use axum::extract::{DefaultBodyLimit, Path, State};
+use axum::extract::{DefaultBodyLimit, Path, RawQuery, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use deaddrop_protocol::{ArtifactRef, MessageId, decode_envelope_v0, encode_envelope_v0};
+use deaddrop_protocol::{ArtifactRef, MessageId, NodeId, decode_envelope_v0, encode_envelope_v0};
 use deaddrop_store::{
     ArtifactPutOutcome, ArtifactStore, FilesystemArtifactStore, MessageStore, MessageStoreOutcome,
     SqliteMessageStore, SqliteMessageStoreError,
@@ -95,7 +102,7 @@ pub fn router(messages: SqliteMessageStore, artifacts: FilesystemArtifactStore) 
     };
 
     let messages = Router::new()
-        .route("/v0/messages", post(post_message))
+        .route("/v0/messages", post(post_message).get(list_messages))
         .route("/v0/messages/{id}", get(get_message))
         .layer(DefaultBodyLimit::max(LOCAL_BODY_LIMIT_BYTES));
 
@@ -170,6 +177,78 @@ async fn post_message(State(state): State<NodeState>, headers: HeaderMap, body: 
         }
         Err(error) => internal(format!("store failed: {error}")),
     }
+}
+
+/// Exactly one query parameter, `to`, is accepted. Anything else (missing,
+/// repeated, or additional parameters, or bytes that do not decode to UTF-8)
+/// is rejected rather than guessed at.
+async fn list_messages(State(state): State<NodeState>, RawQuery(query): RawQuery) -> Response {
+    let Some(value) = query.as_deref().and_then(single_to_param) else {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "invalid_query",
+            "expected exactly one query parameter: to=<node-id>".to_owned(),
+        );
+    };
+
+    let recipient = match NodeId::parse(value.clone()) {
+        Ok(recipient) => recipient,
+        Err(error) => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "invalid_recipient",
+                format!("{value:?}: {error}"),
+            );
+        }
+    };
+
+    let listed = match state
+        .with_store(move |store| store.ids_for_recipient(&recipient))
+        .await
+    {
+        Ok(listed) => listed,
+        Err(response) => return response,
+    };
+
+    match listed {
+        Ok(ids) => {
+            let message_ids: Vec<&str> = ids.iter().map(MessageId::as_str).collect();
+            (
+                StatusCode::OK,
+                axum::Json(json!({ "message_ids": message_ids })),
+            )
+                .into_response()
+        }
+        Err(error) => internal(format!("list failed: {error}")),
+    }
+}
+
+/// `to=<value>` as the only pair, decoded per
+/// `application/x-www-form-urlencoded` (`+` is a space, `%XX` is a byte).
+/// Unlike lossy form decoders, invalid UTF-8 is an error, never U+FFFD.
+fn single_to_param(query: &str) -> Option<String> {
+    let value = query.strip_prefix("to=")?;
+
+    if value.contains(['&', '=']) {
+        return None;
+    }
+
+    let mut bytes = Vec::with_capacity(value.len());
+    let mut input = value.bytes();
+
+    while let Some(byte) = input.next() {
+        bytes.push(match byte {
+            b'+' => b' ',
+            b'%' => {
+                let high = char::from(input.next()?).to_digit(16)?;
+                let low = char::from(input.next()?).to_digit(16)?;
+                (high * 16 + low) as u8
+            }
+            other => other,
+        });
+    }
+
+    String::from_utf8(bytes).ok()
 }
 
 async fn get_message(State(state): State<NodeState>, Path(id): Path<String>) -> Response {
