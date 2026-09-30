@@ -86,6 +86,9 @@ impl SqliteMessageStore {
                     REFERENCES messages(message_id)
                     ON DELETE CASCADE
             );
+
+            CREATE INDEX IF NOT EXISTS messages_by_recipient
+                ON messages(recipient, message_id);
             ",
         )?;
 
@@ -286,5 +289,35 @@ impl MessageStore for SqliteMessageStore {
         transaction.commit()?;
 
         Ok(envelope)
+    }
+    fn ids_for_recipient(&self, recipient: &NodeId) -> Result<Vec<MessageId>, Self::Error> {
+        // BINARY collation orders TEXT by UTF-8 bytes, matching `MessageId`'s
+        // `Ord`, so both stores enumerate identically.
+        let mut statement = self.connection.prepare(
+            "
+            SELECT message_id
+            FROM messages
+            WHERE recipient = ?1
+            ORDER BY message_id ASC
+            ",
+        )?;
+
+        let rows =
+            statement.query_map(params![recipient.as_str()], |row| row.get::<_, String>(0))?;
+
+        let mut ids = Vec::new();
+
+        for row in rows {
+            let message_id = row?;
+
+            ids.push(MessageId::parse(message_id.clone()).map_err(|_| {
+                SqliteMessageStoreError::InvalidPersistedField {
+                    field: "message_id",
+                    value: message_id,
+                }
+            })?);
+        }
+
+        Ok(ids)
     }
 }

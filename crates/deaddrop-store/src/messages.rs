@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use deaddrop_protocol::{EnvelopeV0, MessageId};
+use deaddrop_protocol::{EnvelopeV0, MessageId, NodeId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageStoreOutcome {
@@ -38,6 +38,13 @@ pub trait MessageStore {
     fn store(&mut self, envelope: EnvelopeV0) -> Result<MessageStoreOutcome, Self::Error>;
 
     fn load(&self, message_id: &MessageId) -> Result<Option<EnvelopeV0>, Self::Error>;
+
+    /// Ids of the stored envelopes whose `to` is exactly `recipient`.
+    ///
+    /// Read-only. Each id appears once, sorted ascending by `MessageId`
+    /// (byte-wise UTF-8). That order is for deterministic enumeration only:
+    /// it is not semantic, causal, chronological, delivery, or priority order.
+    fn ids_for_recipient(&self, recipient: &NodeId) -> Result<Vec<MessageId>, Self::Error>;
 }
 
 #[derive(Debug, Default)]
@@ -73,12 +80,25 @@ impl MessageStore for InMemoryMessageStore {
     fn load(&self, message_id: &MessageId) -> Result<Option<EnvelopeV0>, Self::Error> {
         Ok(self.envelopes.get(message_id).cloned())
     }
+
+    fn ids_for_recipient(&self, recipient: &NodeId) -> Result<Vec<MessageId>, Self::Error> {
+        let mut ids: Vec<MessageId> = self
+            .envelopes
+            .values()
+            .filter(|envelope| envelope.to() == recipient)
+            .map(|envelope| envelope.id().clone())
+            .collect();
+
+        ids.sort();
+
+        Ok(ids)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deaddrop_protocol::{MessageKind, NodeId};
+    use deaddrop_protocol::MessageKind;
 
     fn envelope(id: &str, from: &str, to: &str, body: &str) -> EnvelopeV0 {
         EnvelopeV0::new(
