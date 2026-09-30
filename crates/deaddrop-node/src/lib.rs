@@ -19,7 +19,8 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use deaddrop_protocol::{MessageId, decode_envelope_v0, encode_envelope_v0};
 use deaddrop_store::{
-    MessageStore, MessageStoreOutcome, SqliteMessageStore, SqliteMessageStoreError,
+    FilesystemArtifactStore, MessageStore, MessageStoreOutcome, SqliteMessageStore,
+    SqliteMessageStoreError,
 };
 use serde_json::json;
 
@@ -36,7 +37,8 @@ pub const DEFAULT_LISTEN: &str = "127.0.0.1:8787";
 /// blocking pool, serialized by the mutex.
 #[derive(Clone)]
 struct NodeState {
-    store: Arc<Mutex<SqliteMessageStore>>,
+    messages: Arc<Mutex<SqliteMessageStore>>,
+    artifacts: Arc<Mutex<FilesystemArtifactStore>>,
 }
 
 impl NodeState {
@@ -44,7 +46,7 @@ impl NodeState {
         &self,
         operation: impl FnOnce(&mut SqliteMessageStore) -> T + Send + 'static,
     ) -> Result<T, Response> {
-        let store = Arc::clone(&self.store);
+        let store = Arc::clone(&self.messages);
 
         tokio::task::spawn_blocking(move || {
             let mut store = store
@@ -57,9 +59,10 @@ impl NodeState {
     }
 }
 
-pub fn router(store: SqliteMessageStore) -> Router {
+pub fn router(messages: SqliteMessageStore, artifacts: FilesystemArtifactStore) -> Router {
     let state = NodeState {
-        store: Arc::new(Mutex::new(store)),
+        messages: Arc::new(Mutex::new(messages)),
+        artifacts: Arc::new(Mutex::new(artifacts)),
     };
 
     Router::new()

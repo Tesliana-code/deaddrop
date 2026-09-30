@@ -5,7 +5,9 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
 use deaddrop_node::{LOCAL_BODY_LIMIT_BYTES, router};
 use deaddrop_protocol::MessageId;
-use deaddrop_store::{DeliveryEventStore, SqliteDeliveryEventStore, SqliteMessageStore};
+use deaddrop_store::{
+    DeliveryEventStore, FilesystemArtifactStore, SqliteDeliveryEventStore, SqliteMessageStore,
+};
 use http_body_util::BodyExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tower::ServiceExt;
@@ -41,7 +43,13 @@ fn fresh_db(name: &str) -> PathBuf {
 }
 
 fn app(db: &PathBuf) -> Router {
-    router(SqliteMessageStore::open(db).unwrap())
+    let artifacts = db.with_extension("artifacts");
+    let _ = std::fs::remove_dir_all(&artifacts);
+
+    router(
+        SqliteMessageStore::open(db).unwrap(),
+        FilesystemArtifactStore::open(artifacts).unwrap(),
+    )
 }
 
 async fn post(app: &Router, body: &str) -> (StatusCode, Vec<u8>) {
