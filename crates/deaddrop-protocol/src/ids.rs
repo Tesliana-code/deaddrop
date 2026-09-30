@@ -92,6 +92,22 @@ opaque_id!(MessageId);
 opaque_id!(DeliveryEventId);
 opaque_id!(CorrelationId);
 
+impl MessageId {
+    /// Reference sender-side generator for a new logical message.
+    ///
+    /// Produces a random (version 4) UUID in lowercase hyphenated form from
+    /// the operating system CSPRNG: globally collision resistant without
+    /// coordination, clocks, counters, or relay/recipient assignment, and
+    /// carrying no timestamp or ordering metadata.
+    ///
+    /// This is a reference format, not a wire restriction: `parse` continues
+    /// to accept every opaque identifier valid under V0. Retransmissions of
+    /// one logical message reuse its id; they never generate a new one.
+    pub fn generate() -> Self {
+        Self(uuid::Uuid::new_v4().hyphenated().to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
