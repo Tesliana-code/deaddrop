@@ -3,7 +3,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use deaddrop_protocol::{
-    ArtifactRef, CorrelationId, EnvelopeV0, MessageId, MessageKind, NodeId, PROTOCOL_V0,
+    ArtifactRef, CorrelationId, EnvelopeLimitError, EnvelopeV0, MessageId, MessageKind, NodeId,
+    PROTOCOL_V0, check_envelope_v0_limits,
 };
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 
@@ -13,6 +14,7 @@ use crate::{MessageStore, MessageStoreOutcome};
 pub enum SqliteMessageStoreError {
     Sqlite(rusqlite::Error),
     MessageIdentityConflict { message_id: MessageId },
+    EnvelopeLimit(EnvelopeLimitError),
     InvalidPersistedField { field: &'static str, value: String },
     UnknownPersistedKind { value: String },
     UnsupportedProtocol { value: String },
@@ -26,6 +28,7 @@ impl fmt::Display for SqliteMessageStoreError {
                 f,
                 "message id {message_id} already identifies a different envelope"
             ),
+            Self::EnvelopeLimit(error) => write!(f, "envelope exceeds V0 limits: {error}"),
             Self::InvalidPersistedField { field, value } => {
                 write!(f, "invalid persisted {field}: {value:?}")
             }
@@ -40,6 +43,23 @@ impl fmt::Display for SqliteMessageStoreError {
 }
 
 impl std::error::Error for SqliteMessageStoreError {}
+
+/// Longest prefix of an invalid persisted value that an error carries; load
+/// errors can be rendered to callers and must not echo unbounded data.
+const ERROR_VALUE_PREVIEW_BYTES: usize = 64;
+
+fn preview(value: &str) -> String {
+    if value.len() <= ERROR_VALUE_PREVIEW_BYTES {
+        return value.to_owned();
+    }
+
+    let mut end = ERROR_VALUE_PREVIEW_BYTES;
+    while !value.is_char_boundary(end) {
+        end -= 1;
+    }
+
+    format!("{}... ({} bytes)", &value[..end], value.len())
+}
 
 impl From<rusqlite::Error> for SqliteMessageStoreError {
     fn from(error: rusqlite::Error) -> Self {
@@ -150,32 +170,37 @@ impl SqliteMessageStore {
         body: String,
     ) -> Result<EnvelopeV0, SqliteMessageStoreError> {
         if protocol != PROTOCOL_V0 {
-            return Err(SqliteMessageStoreError::UnsupportedProtocol { value: protocol });
+            return Err(SqliteMessageStoreError::UnsupportedProtocol {
+                value: preview(&protocol),
+            });
         }
 
         let sender = NodeId::parse(sender.clone()).map_err(|_| {
             SqliteMessageStoreError::InvalidPersistedField {
                 field: "sender",
-                value: sender,
+                value: preview(&sender),
             }
         })?;
 
         let recipient = NodeId::parse(recipient.clone()).map_err(|_| {
             SqliteMessageStoreError::InvalidPersistedField {
                 field: "recipient",
-                value: recipient,
+                value: preview(&recipient),
             }
         })?;
 
-        let kind = MessageKind::parse(&kind)
-            .ok_or_else(|| SqliteMessageStoreError::UnknownPersistedKind { value: kind })?;
+        let kind = MessageKind::parse(&kind).ok_or_else(|| {
+            SqliteMessageStoreError::UnknownPersistedKind {
+                value: preview(&kind),
+            }
+        })?;
 
         let correlation_id = correlation_id
             .map(|value| {
                 CorrelationId::parse(value.clone()).map_err(|_| {
                     SqliteMessageStoreError::InvalidPersistedField {
                         field: "correlation_id",
-                        value,
+                        value: preview(&value),
                     }
                 })
             })
@@ -205,12 +230,15 @@ impl SqliteMessageStore {
             let parsed = ArtifactRef::from_str(&artifact_ref).map_err(|_| {
                 SqliteMessageStoreError::InvalidPersistedField {
                     field: "artifact_ref",
-                    value: artifact_ref,
+                    value: preview(&artifact_ref),
                 }
             })?;
 
             envelope = envelope.with_artifact_ref(parsed);
         }
+
+        // Persisted rows that exceed the V0 limits fail closed on load too.
+        check_envelope_v0_limits(&envelope).map_err(SqliteMessageStoreError::EnvelopeLimit)?;
 
         Ok(envelope)
     }
@@ -220,6 +248,8 @@ impl MessageStore for SqliteMessageStore {
     type Error = SqliteMessageStoreError;
 
     fn store(&mut self, envelope: EnvelopeV0) -> Result<MessageStoreOutcome, Self::Error> {
+        check_envelope_v0_limits(&envelope).map_err(SqliteMessageStoreError::EnvelopeLimit)?;
+
         let transaction = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -313,7 +343,7 @@ impl MessageStore for SqliteMessageStore {
             ids.push(MessageId::parse(message_id.clone()).map_err(|_| {
                 SqliteMessageStoreError::InvalidPersistedField {
                     field: "message_id",
-                    value: message_id,
+                    value: preview(&message_id),
                 }
             })?);
         }

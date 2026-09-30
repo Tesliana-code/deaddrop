@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use deaddrop_protocol::{EnvelopeV0, MessageId, NodeId};
+use deaddrop_protocol::{
+    EnvelopeLimitError, EnvelopeV0, MessageId, NodeId, check_envelope_v0_limits,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageStoreOutcome {
@@ -12,6 +14,7 @@ pub enum MessageStoreOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InMemoryMessageStoreError {
     MessageIdentityConflict { message_id: MessageId },
+    EnvelopeLimit(EnvelopeLimitError),
 }
 
 impl fmt::Display for InMemoryMessageStoreError {
@@ -21,6 +24,7 @@ impl fmt::Display for InMemoryMessageStoreError {
                 f,
                 "message id {message_id} already identifies a different envelope"
             ),
+            Self::EnvelopeLimit(error) => write!(f, "envelope exceeds V0 limits: {error}"),
         }
     }
 }
@@ -31,7 +35,8 @@ impl std::error::Error for InMemoryMessageStoreError {}
 ///
 /// A message id identifies exactly one EnvelopeV0. Replaying that exact
 /// envelope is idempotent. Reusing the same id for different content fails
-/// closed.
+/// closed. An envelope that exceeds the V0 protocol limits is refused,
+/// however it was constructed.
 pub trait MessageStore {
     type Error;
 
@@ -62,6 +67,8 @@ impl MessageStore for InMemoryMessageStore {
     type Error = InMemoryMessageStoreError;
 
     fn store(&mut self, envelope: EnvelopeV0) -> Result<MessageStoreOutcome, Self::Error> {
+        check_envelope_v0_limits(&envelope).map_err(InMemoryMessageStoreError::EnvelopeLimit)?;
+
         if let Some(existing) = self.envelopes.get(envelope.id()) {
             if existing == &envelope {
                 return Ok(MessageStoreOutcome::AlreadyPresent);

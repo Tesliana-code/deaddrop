@@ -7,7 +7,9 @@
 use std::io::{self, Read, Write};
 use std::process::ExitCode;
 
-use deaddrop_protocol::{MessageId, decode_envelope_v0, encode_envelope_v0};
+use deaddrop_protocol::{
+    MAX_CANONICAL_ENVELOPE_BYTES, MessageId, decode_envelope_v0, encode_envelope_v0,
+};
 use deaddrop_store::{
     MessageStore, MessageStoreOutcome, SqliteMessageStore, SqliteMessageStoreError,
 };
@@ -112,11 +114,22 @@ fn parse_flags(args: &[String], required: &[&str]) -> Result<Vec<String>, Failur
         .collect()
 }
 
+/// Read at most one byte past the V0 envelope limit, so oversize input is
+/// rejected without buffering all of it.
 fn read_stdin() -> Result<Vec<u8>, Failure> {
     let mut bytes = Vec::new();
     io::stdin()
+        .take(MAX_CANONICAL_ENVELOPE_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(|error| Failure::new(EXIT_FAILURE, format!("failed to read stdin: {error}")))?;
+
+    if bytes.len() > MAX_CANONICAL_ENVELOPE_BYTES {
+        return Err(Failure::new(
+            EXIT_INVALID,
+            format!("invalid envelope: input exceeds {MAX_CANONICAL_ENVELOPE_BYTES} bytes"),
+        ));
+    }
+
     Ok(bytes)
 }
 

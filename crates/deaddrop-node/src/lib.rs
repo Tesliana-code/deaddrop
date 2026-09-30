@@ -29,7 +29,10 @@ use axum::extract::{DefaultBodyLimit, Path, RawQuery, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use deaddrop_protocol::{ArtifactRef, MessageId, NodeId, decode_envelope_v0, encode_envelope_v0};
+use deaddrop_protocol::{
+    ArtifactRef, EnvelopeLimitError, MAX_CANONICAL_ENVELOPE_BYTES, MessageId, NodeId,
+    WireEnvelopeError, decode_envelope_v0, encode_envelope_v0,
+};
 use deaddrop_store::{
     ArtifactPutOutcome, ArtifactStore, FilesystemArtifactStore, MessageStore, MessageStoreOutcome,
     SqliteMessageStore, SqliteMessageStoreError,
@@ -39,8 +42,12 @@ use serde_json::json;
 /// Local implementation safety limit on request body size.
 ///
 /// Non-normative: this protects this node process only. It is not an
-/// EnvelopeV0 size law and other implementations need not share it.
+/// EnvelopeV0 size law and other implementations need not share it. It must
+/// stay at or above the protocol's `MAX_CANONICAL_ENVELOPE_BYTES`; envelopes
+/// between the two are rejected by the decoder, also as 413.
 pub const LOCAL_BODY_LIMIT_BYTES: usize = 1024 * 1024;
+
+const _: () = assert!(LOCAL_BODY_LIMIT_BYTES >= MAX_CANONICAL_ENVELOPE_BYTES);
 
 /// Local implementation safety limit on artifact upload body size.
 ///
@@ -145,6 +152,13 @@ async fn post_message(State(state): State<NodeState>, headers: HeaderMap, body: 
 
     let envelope = match decode_envelope_v0(&body) {
         Ok(envelope) => envelope,
+        Err(error @ WireEnvelopeError::Limit(EnvelopeLimitError::EnvelopeTooLarge { .. })) => {
+            return error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "envelope_too_large",
+                error.to_string(),
+            );
+        }
         Err(error) => {
             return error_response(
                 StatusCode::BAD_REQUEST,
@@ -197,7 +211,7 @@ async fn list_messages(State(state): State<NodeState>, RawQuery(query): RawQuery
             return error_response(
                 StatusCode::BAD_REQUEST,
                 "invalid_recipient",
-                format!("{value:?}: {error}"),
+                error.to_string(),
             );
         }
     };
@@ -258,7 +272,7 @@ async fn get_message(State(state): State<NodeState>, Path(id): Path<String>) -> 
             return error_response(
                 StatusCode::BAD_REQUEST,
                 "invalid_message_id",
-                format!("{id:?}: {error}"),
+                error.to_string(),
             );
         }
     };

@@ -156,3 +156,53 @@ fn g_missing_message_id_is_distinct_not_found() {
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).contains("not found"));
 }
+
+/// Like `deaddrop`, but tolerates the CLI exiting before consuming all input.
+fn deaddrop_partial_read(args: &[&str], stdin: &[u8]) -> Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_deaddrop"))
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn deaddrop");
+
+    match child.stdin.take().expect("stdin").write_all(stdin) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => {}
+        Err(error) => panic!("write stdin: {error}"),
+    }
+
+    child.wait_with_output().expect("wait deaddrop")
+}
+
+fn canonical_of_len(len: usize) -> String {
+    let padding = len - (CANONICAL.len() - "continue this task".len());
+    let bytes = CANONICAL.replace("continue this task", &"x".repeat(padding));
+    assert_eq!(bytes.len(), len);
+    bytes
+}
+
+#[test]
+fn l_stdin_is_bounded_to_the_protocol_envelope_limit() {
+    let max = deaddrop_protocol::MAX_CANONICAL_ENVELOPE_BYTES;
+
+    let exact = deaddrop(&["validate-envelope"], canonical_of_len(max).as_bytes());
+    assert!(exact.status.success(), "{exact:?}");
+
+    let over = canonical_of_len(max + 1);
+    let output = deaddrop(&["validate-envelope"], over.as_bytes());
+    assert_eq!(output.status.code(), Some(EXIT_INVALID), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("exceeds"));
+
+    let db = fresh_db("oversize");
+    let output = deaddrop(&["store-envelope", "--db", &db], over.as_bytes());
+    assert_eq!(output.status.code(), Some(EXIT_INVALID), "{output:?}");
+    let output = deaddrop(&["get-envelope", "--db", &db, "--id", "msg-cli-1"], b"");
+    assert_eq!(output.status.code(), Some(EXIT_NOT_FOUND), "{output:?}");
+
+    // Far larger input is rejected after reading only max + 1 bytes.
+    let output = deaddrop_partial_read(&["validate-envelope"], &vec![b'x'; 32 * max]);
+    assert_eq!(output.status.code(), Some(EXIT_INVALID), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("exceeds"));
+}

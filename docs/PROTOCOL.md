@@ -52,7 +52,7 @@ Its canonical V0 wire representation is UTF-8 JSON with this field order:
 }
 ```
 
-The example above is formatted for readability. The canonical wire bytes are compact and are defined normatively by rules R1–R7 below. The key words MUST, MUST NOT and SHOULD are normative.
+The example above is formatted for readability. The canonical wire bytes are compact and are defined normatively by rules R1–R8 below. The key words MUST, MUST NOT and SHOULD are normative.
 
 These rules describe the behavior of the reference implementation (`deaddrop-protocol`) and do not change it. They are language-independent: implementations in other languages MUST reproduce the same bytes without relying on any particular JSON library's defaults.
 
@@ -112,6 +112,7 @@ This matches the ECMAScript `JSON.stringify` / RFC 8785 string serialization for
 - non-empty
 - the first and the last scalar are not Unicode `White_Space`: U+0009..U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029, U+202F, U+205F, U+3000
 - no scalar in general category `Cc`: U+0000..U+001F, U+007F..U+009F
+- at most 256 UTF-8 bytes (R8)
 
 Nothing else is restricted. Interior spaces, non-ASCII, format characters (for example U+200B, U+202E) and unnormalized text are accepted by V0. Implementations MUST NOT apply stronger identifier restrictions or normalization to V0 envelopes.
 
@@ -119,15 +120,24 @@ Nothing else is restricted. Interior spaces, non-ASCII, format characters (for e
 
 A receiver accepts bytes `B` if and only if all of the following hold:
 
+0. `B` is at most 262,144 bytes long (R8). This is checked before parsing.
 1. `B` is well-formed UTF-8.
-2. `B` parses as JSON into a value satisfying R2, R3 and R5.
+2. `B` parses as JSON into a value satisfying R2, R3, R5 and R8.
 3. Re-encoding that value per R1–R4 yields bytes byte-for-byte equal to `B`.
 
 Step 3 is a security and interoperability requirement, not a serializer preference. When `B` equals a canonical encoding, it is by construction free of duplicate members, alternative escapes, whitespace, BOMs and invalid UTF-8. Without step 3, ordinary JSON parsers can accept duplicate members and silently change `body` or `to` between the bytes that were received (and later signed or verified) and the value that is acted on.
 
 ### R7 Encoder obligation
 
-An encoder MUST refuse, rather than emit, a value that violates R3 or R5, or that contains a surrogate code point. It MUST NOT emit nonconforming wire bytes.
+An encoder MUST refuse, rather than emit, a value that violates R3, R5 or R8, or that contains a surrogate code point. It MUST NOT emit nonconforming wire bytes.
+
+### R8 Limits
+
+- The canonical wire bytes of one envelope MUST be at most **262,144** bytes.
+- Each identifier (`id`, `from`, `to`, a present `correlation_id`) MUST be at most **256** bytes of UTF-8, measured on the string value, not on its escaped wire form.
+- `artifact_refs` MUST contain at most **256** elements. Duplicates remain valid and each one counts.
+
+All limits count bytes, never Unicode scalars, characters or UTF-16 code units. `body` has no separate limit; it is bounded by the envelope limit. (Informative: with every other field at its maximum and no escaping, about 224 KiB of body remains available. Escaped scalars consume more wire bytes than their UTF-8 length.)
 
 ### Implementer note
 
@@ -239,7 +249,7 @@ This keeps protocol evidence precise across retries and partial failure.
 
 ## 10. Canonical wire acceptance
 
-A V0 implementation accepts a wire envelope exactly when the R6 acceptance rule in §2 holds: the bytes are valid UTF-8, parse into the frozen V0 schema and value constraints (R2, R3, R5), and re-encode per R1–R4 to the exact original bytes.
+A V0 implementation accepts a wire envelope exactly when the R6 acceptance rule in §2 holds: the bytes are within the R8 size limit, are valid UTF-8, parse into the frozen V0 schema and value constraints (R2, R3, R5, R8), and re-encode per R1–R4 to the exact original bytes.
 
 Canonical re-encode equality is a security and interoperability requirement, not a serializer preference.
 

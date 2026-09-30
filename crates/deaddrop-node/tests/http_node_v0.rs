@@ -4,7 +4,7 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
 use deaddrop_node::{LOCAL_ARTIFACT_BODY_LIMIT_BYTES, LOCAL_BODY_LIMIT_BYTES, router};
-use deaddrop_protocol::{ArtifactRef, MessageId};
+use deaddrop_protocol::{ArtifactRef, MAX_CANONICAL_ENVELOPE_BYTES, MessageId};
 use deaddrop_store::{
     ArtifactStore, DeliveryEventStore, FilesystemArtifactStore, SqliteDeliveryEventStore,
     SqliteMessageStore,
@@ -291,6 +291,39 @@ async fn post_over_local_body_limit_is_payload_too_large_and_not_persisted() {
         get(&app, "msg-http-oversized").await.0,
         StatusCode::NOT_FOUND
     );
+}
+
+#[test]
+fn transport_ceiling_is_at_least_the_protocol_envelope_limit() {
+    const { assert!(LOCAL_BODY_LIMIT_BYTES >= MAX_CANONICAL_ENVELOPE_BYTES) };
+}
+
+#[tokio::test]
+async fn post_over_protocol_limit_under_transport_limit_is_413_and_not_persisted() {
+    let app = app(&fresh_db("protocol-limit"));
+
+    let framing = CANONICAL.len() - "continue this task".len();
+    let sized = |len: usize| {
+        CANONICAL
+            .replace("msg-http-1", "msg-http-limit")
+            .replace("continue this task", &"x".repeat(len - framing - 4))
+    };
+
+    let over = sized(MAX_CANONICAL_ENVELOPE_BYTES + 1);
+    assert_eq!(over.len(), MAX_CANONICAL_ENVELOPE_BYTES + 1);
+    assert!(over.len() < LOCAL_BODY_LIMIT_BYTES);
+
+    let (status, body) = post(&app, &over).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(json(&body)["error"], "envelope_too_large");
+    assert_eq!(get(&app, "msg-http-limit").await.0, StatusCode::NOT_FOUND);
+
+    let exact = sized(MAX_CANONICAL_ENVELOPE_BYTES);
+    assert_eq!(exact.len(), MAX_CANONICAL_ENVELOPE_BYTES);
+    assert_eq!(post(&app, &exact).await.0, StatusCode::CREATED);
+    let (status, fetched) = get(&app, "msg-http-limit").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(fetched, exact.as_bytes());
 }
 
 // ---- Artifact HTTP boundary ----

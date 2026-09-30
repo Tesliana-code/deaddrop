@@ -1,10 +1,13 @@
 use std::fmt;
 
+use crate::MAX_IDENTIFIER_UTF8_BYTES;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdError {
     Empty,
     LeadingOrTrailingWhitespace,
     ControlCharacter,
+    TooLong { len: usize },
 }
 
 impl fmt::Display for IdError {
@@ -20,6 +23,10 @@ impl fmt::Display for IdError {
             Self::ControlCharacter => {
                 write!(f, "identifier must not contain control characters")
             }
+            Self::TooLong { len } => write!(
+                f,
+                "identifier is {len} UTF-8 bytes; the V0 maximum is {MAX_IDENTIFIER_UTF8_BYTES}"
+            ),
         }
     }
 }
@@ -29,6 +36,10 @@ impl std::error::Error for IdError {}
 fn validate_id(value: &str) -> Result<(), IdError> {
     if value.is_empty() {
         return Err(IdError::Empty);
+    }
+
+    if value.len() > MAX_IDENTIFIER_UTF8_BYTES {
+        return Err(IdError::TooLong { len: value.len() });
     }
 
     if value.trim() != value {
@@ -134,5 +145,22 @@ mod tests {
     #[test]
     fn rejects_control_characters() {
         assert_eq!(MessageId::parse("msg\n1"), Err(IdError::ControlCharacter));
+    }
+
+    #[test]
+    fn identifier_length_is_counted_in_utf8_bytes() {
+        assert!(NodeId::parse("a".repeat(MAX_IDENTIFIER_UTF8_BYTES)).is_ok());
+        assert_eq!(
+            NodeId::parse("a".repeat(MAX_IDENTIFIER_UTF8_BYTES + 1)),
+            Err(IdError::TooLong { len: 257 })
+        );
+
+        // 64 four-byte scalars: 64 characters, 256 bytes.
+        assert!(DeliveryEventId::parse("\u{1F600}".repeat(64)).is_ok());
+        // 128 two-byte scalars plus one ASCII byte: 129 characters, 257 bytes.
+        assert_eq!(
+            CorrelationId::parse(format!("{}a", "\u{e9}".repeat(128))),
+            Err(IdError::TooLong { len: 257 })
+        );
     }
 }
