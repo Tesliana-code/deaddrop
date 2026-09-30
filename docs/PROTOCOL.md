@@ -141,11 +141,21 @@ Therefore implementations MUST perform the R6 canonical re-encode byte-equality 
 
 ## 3. Message identity
 
-A message keeps the same `MessageId` across retransmission.
+The V0 message identity tuple is `MessageId` alone. A `MessageId` identifies exactly one immutable EnvelopeV0 across the Deaddrop message namespace.
 
-Exact replay is idempotent.
+- The sender generates the `MessageId`. Relays, recipients and stores MUST NOT assign or rewrite it.
+- A `MessageId` MUST be globally collision-resistant.
+- Retransmission of the same logical message MUST reuse the same `MessageId`. Exact replay is idempotent.
+- Different immutable envelopes MUST use different `MessageId`s. Reusing one `MessageId` for different envelope content, in any field including `from`, is an identity conflict and fails closed at the persistence boundary.
 
-Reusing one `MessageId` for different envelope content produces an identity conflict at the persistence boundary.
+`MessageId` is neither content identity nor delivery identity:
+
+- `ArtifactRef` (§7) is content identity for exact artifact bytes, not message identity.
+- `DeliveryEventId` (§8) identifies delivery evidence about a message, not the message.
+
+The reference generator (`MessageId::generate`) emits a random version 4 UUID in lowercase hyphenated form from the operating system CSPRNG. It needs no coordination, clock, counter or ordering, carries no timestamp metadata, and works offline. This is a reference format, not a wire restriction: on the wire `id` remains an opaque identifier under the §2 R5 profile, and receivers MUST accept any valid V0 identifier without inferring structure from it.
+
+The cryptographic layer (§13) will authenticate the envelope that contains the `MessageId`. It does not redefine the identity tuple.
 
 ## 4. Explicit addressing
 
