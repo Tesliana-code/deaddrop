@@ -3,6 +3,11 @@
 //! A consumer of existing protocol and store authority: envelopes are parsed
 //! and emitted only through the canonical V0 wire codec and persisted only
 //! through SqliteMessageStore.
+//!
+//! Network shell commands (`init`, `identity`, `peer`, `peers`, `send`,
+//! `inbox`, `ack`, `status`, `artifact`) live in [`shell`].
+
+mod shell;
 
 use std::io::{self, Read, Write};
 use std::process::ExitCode;
@@ -12,25 +17,39 @@ use deaddrop_store::{
     MessageStore, MessageStoreOutcome, SqliteMessageStore, SqliteMessageStoreError,
 };
 
-const EXIT_FAILURE: u8 = 1;
-const EXIT_USAGE: u8 = 2;
-const EXIT_INVALID: u8 = 3;
-const EXIT_CONFLICT: u8 = 4;
-const EXIT_NOT_FOUND: u8 = 5;
+pub(crate) const EXIT_FAILURE: u8 = 1;
+pub(crate) const EXIT_USAGE: u8 = 2;
+pub(crate) const EXIT_INVALID: u8 = 3;
+pub(crate) const EXIT_CONFLICT: u8 = 4;
+pub(crate) const EXIT_NOT_FOUND: u8 = 5;
 
 const USAGE: &str = "\
 usage:
   deaddrop validate-envelope                      < envelope.json
   deaddrop store-envelope --db <path>             < envelope.json
-  deaddrop get-envelope --db <path> --id <message-id>";
+  deaddrop get-envelope --db <path> --id <message-id>
 
-struct Failure {
+network shell (each takes --home <dir> or DEADDROP_HOME; prints JSON):
+  deaddrop init --node <node-id> --relay <loopback-url>
+  deaddrop identity
+  deaddrop peer add <node-id> <ed25519:hex>
+  deaddrop peers
+  deaddrop send <peer> <message> [--correlation <id>] [--artifact <sha256:ref>]...
+  deaddrop inbox
+  deaddrop ack <message-id>
+  deaddrop status <message-id>
+  deaddrop artifact put <file>
+  deaddrop artifact get <sha256:ref> --out <path>
+
+Slice 1 bodies are signed, not encrypted; only a loopback relay is allowed.";
+
+pub(crate) struct Failure {
     code: u8,
     message: String,
 }
 
 impl Failure {
-    fn new(code: u8, message: impl Into<String>) -> Self {
+    pub(crate) fn new(code: u8, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),
@@ -70,6 +89,11 @@ fn run(args: &[String]) -> Result<(), Failure> {
         "get-envelope" => {
             let flags = parse_flags(rest, &["--db", "--id"])?;
             get_envelope(&flags[0], &flags[1])
+        }
+        other if shell::COMMANDS.contains(&other) => {
+            let output = shell::run(other, rest)?;
+            println!("{output}");
+            Ok(())
         }
         other => Err(Failure::new(
             EXIT_USAGE,

@@ -4,6 +4,7 @@ members = [
     "crates/deaddrop-protocol",
     "crates/deaddrop-core",
     "crates/deaddrop-store",
+    "crates/deaddrop-shell",
     "crates/deaddrop-cli",
     "crates/deaddrop-node",
 ]
