@@ -104,7 +104,7 @@ fn ack_status_survives_restart_without_duplicate_rows() {
     let mut app = App::new();
     app.begin_refresh();
     app.finish(Ok(load(&a).unwrap()));
-    let rows = app.messages();
+    let rows = app.thread(B);
     let [Row::Sent(row)] = rows.as_slice() else {
         panic!("one sent row expected, got {rows:?}");
     };

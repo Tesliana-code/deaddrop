@@ -120,7 +120,10 @@ fn run(mut terminal: DefaultTerminal, home: &Path, glyphs: Glyphs) -> std::io::R
             KeyCode::Down => Key::Down,
             KeyCode::Enter => Key::Enter,
             KeyCode::Esc => Key::Esc,
-            KeyCode::Tab | KeyCode::BackTab | KeyCode::Left | KeyCode::Right => Key::Tab,
+            KeyCode::Left => Key::Left,
+            KeyCode::Right => Key::Right,
+            KeyCode::Tab => Key::Tab,
+            KeyCode::BackTab => Key::BackTab,
             KeyCode::Char(c) => Key::Char(c),
             _ => continue,
         };

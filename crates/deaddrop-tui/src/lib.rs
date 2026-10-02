@@ -2,7 +2,8 @@
 //! identity, trusted peers, and verified messages — over [`deaddrop_shell`].
 //!
 //! - [`snapshot`]: network state, read only through the `Shell` API.
-//! - [`app`]: UI state (focus, selection, view, activity). Pure; no I/O.
+//! - [`app`]: UI state (focus, selection, vault section, first-seen order,
+//!   unread, activity). Pure; no I/O.
 //! - [`avatar`]: stable decorative avatars and spinner frames.
 //! - [`ui`]: rendering. Draws state; never touches the network.
 //!

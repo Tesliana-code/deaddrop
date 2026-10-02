@@ -3,7 +3,7 @@
 //! A [`Snapshot`] is plain display data. The TUI never verifies, signs, or
 //! talks to the relay itself; `Shell::sync` does all of that.
 
-use deaddrop_protocol::{DeliveryEventKind, EnvelopeV0};
+use deaddrop_protocol::{DeliveryEventKind, EnvelopeV0, encode_envelope_v0};
 use deaddrop_shell::{Relay, Shell, ShellError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +30,8 @@ pub struct Received {
     pub artifacts: Vec<String>,
     /// Local delivery evidence kinds, in recording order.
     pub delivery: Vec<String>,
+    /// The canonical V0 wire encoding, for inspection only.
+    pub raw: String,
 }
 
 /// A message this node sent. ACK status comes from durable delivery
@@ -46,6 +48,8 @@ pub struct Sent {
     pub delivery: Vec<String>,
     /// Peers whose verified ACK is recorded, each once.
     pub acked_by: Vec<String>,
+    /// The canonical V0 wire encoding, for inspection only.
+    pub raw: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -125,6 +129,7 @@ fn received<R: Relay>(shell: &Shell<R>, envelope: &EnvelopeV0) -> Result<Receive
             .iter()
             .map(|e| e.kind().as_str().to_owned())
             .collect(),
+        raw: raw(envelope),
     })
 }
 
@@ -153,5 +158,12 @@ fn sent<R: Relay>(shell: &Shell<R>, envelope: &EnvelopeV0) -> Result<Sent, Shell
             .map(|e| e.kind().as_str().to_owned())
             .collect(),
         acked_by,
+        raw: raw(envelope),
     })
+}
+
+fn raw(envelope: &EnvelopeV0) -> String {
+    encode_envelope_v0(envelope)
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .unwrap_or_else(|e| format!("<not encodable: {e}>"))
 }

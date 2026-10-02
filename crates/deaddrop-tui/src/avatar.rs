@@ -1,7 +1,7 @@
 //! Decorative glyphs. Nothing here is protocol state.
 
-const FLOWERS: [&str; 3] = ["🌼", "🌻", "🥀"];
-const ASCII_FLOWERS: [&str; 3] = ["*", "@", "%"];
+const FLOWERS: [&str; 6] = ["🌼", "🌻", "🥀", "🌷", "🌸", "🌺"];
+const ASCII_FLOWERS: [&str; 6] = ["*", "@", "%", "$", "=", "^"];
 
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const ASCII_SPINNER: [&str; 4] = ["|", "/", "-", "\\"];
@@ -36,32 +36,75 @@ impl Glyphs {
         }
     }
 
-    pub fn idle(self) -> &'static str {
+    fn pick(self, unicode: &'static str, ascii: &'static str) -> &'static str {
         match self {
-            Self::Unicode => "◌",
-            Self::Ascii => "o",
+            Self::Unicode => unicode,
+            Self::Ascii => ascii,
         }
+    }
+
+    pub fn idle(self) -> &'static str {
+        self.pick("◌", "o")
     }
 
     pub fn inbound(self) -> &'static str {
-        match self {
-            Self::Unicode => "←",
-            Self::Ascii => "<",
-        }
+        self.pick("←", "<")
     }
 
     pub fn outbound(self) -> &'static str {
-        match self {
-            Self::Unicode => "→",
-            Self::Ascii => ">",
-        }
+        self.pick("→", ">")
     }
 
     pub fn check(self) -> &'static str {
-        match self {
-            Self::Unicode => "✓",
-            Self::Ascii => "+",
-        }
+        self.pick("✓", "+")
+    }
+
+    /// Sent, no ACK recorded yet.
+    pub fn awaiting(self) -> &'static str {
+        self.pick("◷", "~")
+    }
+
+    /// Arrived this session and not yet looked at. UI state only.
+    pub fn unread(self) -> &'static str {
+        self.pick("●", "#")
+    }
+
+    pub fn artifact(self) -> &'static str {
+        self.pick("⧉", "&")
+    }
+
+    /// Relay reachable on the last refresh.
+    pub fn relay_up(self) -> &'static str {
+        self.pick("●", "o")
+    }
+
+    pub fn relay_down(self) -> &'static str {
+        self.pick("○", "x")
+    }
+
+    /// Selection gutter.
+    pub fn bar(self) -> &'static str {
+        self.pick("▌", "|")
+    }
+
+    pub fn rule(self) -> &'static str {
+        self.pick("─", "-")
+    }
+
+    pub fn divider(self) -> &'static str {
+        self.pick("│", "|")
+    }
+
+    pub fn prompt(self) -> &'static str {
+        self.pick("›", ">")
+    }
+
+    pub fn collapsed(self) -> &'static str {
+        self.pick("▸", ">")
+    }
+
+    pub fn expanded(self) -> &'static str {
+        self.pick("▾", "v")
     }
 }
 
@@ -79,7 +122,7 @@ mod tests {
 
     #[test]
     fn avatar_matches_across_glyph_sets() {
-        let index = |g: Glyphs, set: &[&str; 3], node: &str| {
+        let index = |g: Glyphs, set: &[&str; 6], node: &str| {
             set.iter().position(|f| *f == g.avatar(node)).unwrap()
         };
         for node in ["a:b:c", "danil:x:y", "tanish:x:y", "klodik:x:y"] {
