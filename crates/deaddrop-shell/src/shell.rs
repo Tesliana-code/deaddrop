@@ -494,6 +494,26 @@ impl<R: Relay> Shell<R> {
         Ok(inbox)
     }
 
+    /// Messages this node sent, excluding acknowledgments, grouped by
+    /// recipient. `send` only addresses trusted peers and peers are never
+    /// removed, so enumerating each peer's stored messages finds them all.
+    /// Whether one was acknowledged is in [`Shell::delivery`].
+    pub fn sent(&self) -> Result<Vec<EnvelopeV0>, ShellError> {
+        let messages = self.messages()?;
+        let mut sent = Vec::new();
+        for peer in self.load_peers()?.keys() {
+            for id in messages.ids_for_recipient(peer).map_err(store_error)? {
+                if let Some(envelope) = messages.load(&id).map_err(store_error)?
+                    && envelope.from() == self.node()
+                    && envelope.kind() != MessageKind::Acknowledgment
+                {
+                    sent.push(envelope);
+                }
+            }
+        }
+        Ok(sent)
+    }
+
     /// Acknowledge receipt of a verified message from a peer. The ACK id is
     /// derived from the message, so repeating it is an exact replay.
     pub fn ack(&self, message_id: &MessageId) -> Result<MessageId, ShellError> {
