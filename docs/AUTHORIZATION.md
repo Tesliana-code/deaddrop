@@ -92,3 +92,16 @@ The UI should make it possible to distinguish:
 Ambiguous authority is not permission.
 
 When the system cannot determine whether an action is authorized, it should defer or request clarification.
+
+## 9. Trust, policy and authority are separate
+
+```text
+TRUST GIVES YOU A CHANNEL.
+POLICY GIVES YOU PERMISSION TO ASK.
+AUTHORITY GIVES YOU PERMISSION TO ACT.
+THE THREE ARE NOT THE SAME THING.
+```
+
+A trusted peer key authenticates messages; it does not let the sender invoke a peer's runtime. Whether a request may be answered is local, inspectable policy owned by the receiving peer's operator. Neither one grants side effects.
+
+Reserved for the room slice: `0xd34ddr0p::wire`, a read-only stream of real machine routing events. Not implemented yet.

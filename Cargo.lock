@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "agent-wire-coordinate"
+version = "0.0.1"
+source = "git+ssh://git@github.com/Tesliana-code/agent-wire.git?rev=c314763b1aa64241e424ae7e91240d2eba2d2bc6#c314763b1aa64241e424ae7e91240d2eba2d2bc6"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -294,6 +303,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "deaddrop-github"
+version = "0.1.0"
+dependencies = [
+ "deaddrop-klodik",
+ "deaddrop-protocol",
+ "deaddrop-room",
+ "deaddrop-shell",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "deaddrop-klodik"
+version = "0.1.0"
+dependencies = [
+ "deaddrop-protocol",
+ "deaddrop-room",
+ "deaddrop-shell",
+ "deaddrop-task",
+ "deaddrop-tui",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "deaddrop-node"
 version = "0.1.0"
 dependencies = [
@@ -313,6 +347,27 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
+]
+
+[[package]]
+name = "deaddrop-research"
+version = "0.1.0"
+dependencies = [
+ "deaddrop-github",
+ "deaddrop-klodik",
+ "deaddrop-protocol",
+ "deaddrop-room",
+ "deaddrop-shell",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "deaddrop-room"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -341,13 +396,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "deaddrop-task"
+version = "0.1.0"
+dependencies = [
+ "agent-wire-coordinate",
+ "deaddrop-github",
+ "deaddrop-klodik",
+ "deaddrop-room",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "deaddrop-tui"
 version = "0.1.0"
 dependencies = [
  "deaddrop-protocol",
+ "deaddrop-room",
  "deaddrop-shell",
+ "deaddrop-task",
+ "deaddrop-wire-command",
  "ratatui",
+ "unicode-segmentation",
 ]
+
+[[package]]
+name = "deaddrop-wire-command"
+version = "0.1.0"
 
 [[package]]
 name = "digest"

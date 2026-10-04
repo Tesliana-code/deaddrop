@@ -3,8 +3,11 @@
 const FLOWERS: [&str; 6] = ["🌼", "🌻", "🥀", "🌷", "🌸", "🌺"];
 const ASCII_FLOWERS: [&str; 6] = ["*", "@", "%", "$", "=", "^"];
 
-const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const ASCII_SPINNER: [&str; 4] = ["|", "/", "-", "\\"];
+/// Header activity: the [↓] mark turning. Plain ASCII, so both glyph sets.
+const ARROWS: [&str; 4] = ["[^]", "[>]", "[v]", "[<]"];
+/// Inline waiting: bracketed typing dots.
+const TYPING: [&str; 5] = ["[·  ]", "[·· ]", "[···]", "[ ··]", "[  ·]"];
+const ASCII_TYPING: [&str; 5] = ["[.  ]", "[.. ]", "[...]", "[ ..]", "[  .]"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Glyphs {
@@ -29,11 +32,18 @@ impl Glyphs {
         set[(fnv1a(node) % set.len() as u64) as usize]
     }
 
+    /// The header's activity spinner, a step every other frame.
     pub fn spinner(self, tick: usize) -> &'static str {
-        match self {
-            Self::Unicode => SPINNER[tick % SPINNER.len()],
-            Self::Ascii => ASCII_SPINNER[tick % ASCII_SPINNER.len()],
-        }
+        ARROWS[(tick / 2) % ARROWS.len()]
+    }
+
+    /// The inline waiting indicator, a step every third frame: calm.
+    pub fn typing(self, tick: usize) -> &'static str {
+        let frames = match self {
+            Self::Unicode => &TYPING,
+            Self::Ascii => &ASCII_TYPING,
+        };
+        frames[(tick / 3) % frames.len()]
     }
 
     fn pick(self, unicode: &'static str, ascii: &'static str) -> &'static str {
@@ -95,6 +105,11 @@ impl Glyphs {
         self.pick("│", "|")
     }
 
+    /// The product mark in the header: decoration, no meaning.
+    pub fn mark(self) -> &'static str {
+        self.pick("[↓]", "[v]")
+    }
+
     pub fn prompt(self) -> &'static str {
         self.pick("›", ">")
     }
@@ -143,8 +158,19 @@ mod tests {
 
     #[test]
     fn spinner_cycles() {
-        assert_eq!(Glyphs::Unicode.spinner(0), Glyphs::Unicode.spinner(10));
-        assert_ne!(Glyphs::Unicode.spinner(0), Glyphs::Unicode.spinner(1));
-        assert_eq!(Glyphs::Ascii.spinner(1), "/");
+        let header: Vec<&str> = (0..8)
+            .step_by(2)
+            .map(|t| Glyphs::Unicode.spinner(t))
+            .collect();
+        assert_eq!(header, ["[^]", "[>]", "[v]", "[<]"]);
+        assert_eq!(Glyphs::Ascii.spinner(8), "[^]", "the same in ASCII");
+        let dots: Vec<&str> = (0..15)
+            .step_by(3)
+            .map(|t| Glyphs::Unicode.typing(t))
+            .collect();
+        assert_eq!(dots, ["[·  ]", "[·· ]", "[···]", "[ ··]", "[  ·]"]);
+        assert_eq!(Glyphs::Ascii.typing(6), "[...]");
+        assert!((0..15).all(|t| Glyphs::Ascii.typing(t).is_ascii()));
+        assert_eq!(Glyphs::Unicode.typing(15), "[·  ]", "it cycles");
     }
 }

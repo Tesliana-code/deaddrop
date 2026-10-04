@@ -8,6 +8,12 @@ members = [
     "crates/deaddrop-cli",
     "crates/deaddrop-node",
     "crates/deaddrop-tui",
+    "crates/deaddrop-klodik",
+    "crates/deaddrop-github",
+    "crates/deaddrop-research",
+    "crates/deaddrop-wire-command",
+    "crates/deaddrop-room",
+    "crates/deaddrop-task",
 ]
 
 [workspace.package]

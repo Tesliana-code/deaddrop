@@ -1,10 +1,12 @@
-//! Network state, read through the existing [`Shell`] API only.
+//! Network state, read and written through the existing [`Shell`] API only.
 //!
 //! A [`Snapshot`] is plain display data. The TUI never verifies, signs, or
-//! talks to the relay itself; `Shell::sync` does all of that.
+//! talks to the relay itself; `Shell::sync` and `Shell::send` do all of that.
 
-use deaddrop_protocol::{DeliveryEventKind, EnvelopeV0, encode_envelope_v0};
+use deaddrop_protocol::{DeliveryEventKind, EnvelopeV0, NodeId, encode_envelope_v0};
 use deaddrop_shell::{Relay, Shell, ShellError};
+
+use crate::app::Outgoing;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
@@ -110,6 +112,17 @@ pub fn load<R: Relay>(shell: &Shell<R>) -> Result<Snapshot, ShellError> {
         sent,
         sync,
     })
+}
+
+/// Send a composed message with `Shell::send`, as `deaddrop send` does: no
+/// correlation, no artifacts. `Ok` holds the new message id; it means the
+/// shell signed, published, and stored it, not that it was delivered.
+pub fn send<R: Relay>(shell: &Shell<R>, outgoing: &Outgoing) -> Result<String, String> {
+    let to = NodeId::parse(outgoing.to.as_str()).map_err(|e| e.to_string())?;
+    shell
+        .send(&to, &outgoing.body, None, &[])
+        .map(|id| id.to_string())
+        .map_err(|e| e.to_string())
 }
 
 fn received<R: Relay>(shell: &Shell<R>, envelope: &EnvelopeV0) -> Result<Received, ShellError> {

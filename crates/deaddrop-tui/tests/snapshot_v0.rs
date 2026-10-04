@@ -2,11 +2,12 @@
 //! `Shell` over the in-process `MemoryRelay`.
 
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use deaddrop_protocol::{ArtifactRef, EnvelopeV0, MessageId, NodeId, SignatureV0};
 use deaddrop_shell::{MemoryRelay, Relay, RelayError, Shell, init};
-use deaddrop_tui::app::{App, Row};
-use deaddrop_tui::snapshot::load;
+use deaddrop_tui::app::{Action, App, Key, Row};
+use deaddrop_tui::snapshot::{load, send};
 
 const A: &str = "node-a:tui:deaddrop";
 const B: &str = "node-b:tui:deaddrop";
@@ -166,6 +167,125 @@ fn relay_down_still_shows_sent_and_ack_status() {
     assert!(snapshot.sync.is_err());
     assert_eq!(snapshot.sent.len(), 1);
     assert_eq!(snapshot.sent[0].acked_by, [B]);
+}
+
+/// Type `text` into the open conversation and return what Enter asks to send.
+fn compose(app: &mut App, text: &str) -> deaddrop_tui::app::Outgoing {
+    for c in text.chars() {
+        app.key(Key::Char(c));
+    }
+    match app.key(Key::Enter) {
+        Action::Send(outgoing) => outgoing,
+        other => panic!("expected a send, got {other:?}"),
+    }
+}
+
+/// A fresh app with the first contact's conversation open.
+fn loaded<R: Relay>(shell: &Shell<R>) -> App {
+    let mut app = App::new();
+    app.begin_refresh();
+    app.finish(Ok(load(shell).unwrap()));
+    app.key(Key::Enter);
+    app
+}
+
+/// One background sync, as the TUI's timer runs it.
+fn auto_sync<R: Relay>(app: &mut App, shell: &Shell<R>) {
+    assert!(app.begin_auto_sync(Instant::now()));
+    app.finish(Ok(load(shell).unwrap()));
+}
+
+#[test]
+fn composed_message_is_sent_by_the_shell_and_shown_awaiting_ack() {
+    let relay = MemoryRelay::default();
+    let (a, b) = pair("compose-send", &relay);
+    let mut app = loaded(&a);
+    assert_eq!(app.selected_peer().unwrap().id, B);
+
+    let outgoing = compose(&mut app, "hello b 🌼");
+    assert_eq!(outgoing.to, B, "recipient is the selected contact");
+    let id = send(&a, &outgoing).unwrap();
+    app.finish_send(Ok(id.clone()));
+    assert_eq!(
+        app.compose.as_ref().unwrap().draft,
+        "",
+        "ready for the next"
+    );
+    app.begin_refresh();
+    app.finish(Ok(load(&a).unwrap()));
+
+    assert_eq!(app.selected_peer().unwrap().id, B);
+    let row = app.selected_message().unwrap();
+    let Row::Sent(out) = row else {
+        panic!("outgoing row expected, got {row:?}");
+    };
+    assert_eq!((out.id.as_str(), out.to.as_str()), (id.as_str(), B));
+    assert_eq!(out.body, "hello b 🌼");
+    assert!(row.awaiting_ack(), "sent is not acknowledged");
+
+    // The peer gets exactly that message.
+    let at_b = load(&b).unwrap();
+    assert_eq!(at_b.inbox.len(), 1);
+    assert_eq!(at_b.inbox[0].id, id);
+    assert_eq!(at_b.inbox[0].from, A);
+
+    // A second message goes straight out, no extra keys.
+    let second = send(&a, &compose(&mut app, "and another")).unwrap();
+    app.finish_send(Ok(second.clone()));
+    app.begin_refresh();
+    app.finish(Ok(load(&a).unwrap()));
+    assert_eq!(app.selected_message().unwrap().id(), second);
+
+    // ACK still comes later, through sync, unchanged — and a background
+    // sync is enough to see it, along with a live reply.
+    b.ack(&MessageId::parse(id.as_str()).unwrap()).unwrap();
+    let reply = b.send(&node(A), "got it", None, &[]).unwrap();
+    auto_sync(&mut app, &a);
+    let rows = app.thread(B);
+    let [Row::Sent(first), Row::Sent(next), Row::Received(back)] = rows.as_slice() else {
+        panic!("two sent and one received expected, got {rows:?}");
+    };
+    assert_eq!(first.id, id);
+    assert_eq!(first.acked_by, [B]);
+    assert_eq!(next.id, second);
+    assert!(
+        next.acked_by.is_empty(),
+        "only the ACKed one is acknowledged"
+    );
+    assert_eq!(
+        (back.id.as_str(), back.body.as_str()),
+        (reply.as_str(), "got it")
+    );
+    assert_eq!(app.unread_total(), 0, "arrived in the open conversation");
+    assert!(app.composing(), "sync leaves compose alone");
+}
+
+#[test]
+fn send_with_relay_down_keeps_the_draft_and_stores_nothing() {
+    let relay = MemoryRelay::default();
+    let (a, _b) = pair("compose-down", &relay);
+    let down = Shell::open_with(&home_of(A, "compose-down"), Down).unwrap();
+    let mut app = loaded(&down);
+
+    let outgoing = compose(&mut app, "are you there");
+    let result = send(&down, &outgoing);
+    assert!(result.as_ref().unwrap_err().contains("down"));
+    app.finish_send(result);
+    assert_eq!(app.compose.as_ref().unwrap().draft, "are you there");
+    assert!(app.status.contains("send failed"));
+    assert!(load(&a).unwrap().sent.is_empty(), "no fake send");
+}
+
+#[test]
+fn send_to_an_untrusted_node_is_refused_by_the_shell() {
+    let relay = MemoryRelay::default();
+    let (a, _b) = pair("compose-unknown", &relay);
+    let outgoing = deaddrop_tui::app::Outgoing {
+        to: "stranger:tui:deaddrop".into(),
+        body: "hi".into(),
+    };
+    assert!(send(&a, &outgoing).is_err());
+    assert!(load(&a).unwrap().sent.is_empty());
 }
 
 fn home_of(who: &str, test: &str) -> PathBuf {
