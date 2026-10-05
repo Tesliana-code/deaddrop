@@ -108,7 +108,19 @@ impl std::fmt::Display for Refusal {
 /// The worker for `id`, if every condition holds; otherwise the first one
 /// that does not, in the order trust, reachability, policy, authority.
 pub fn resolve(id: &str, ctx: &Context) -> Result<&'static Capability, Refusal> {
-    let c = capability(id).ok_or_else(|| Refusal::UnknownCapability(id.to_owned()))?;
+    resolve_in(&REGISTRY, id, ctx)
+}
+
+/// [`resolve`] against a given registry: the same checks, in the same order.
+pub fn resolve_in<'r>(
+    registry: &'r [Capability],
+    id: &str,
+    ctx: &Context,
+) -> Result<&'r Capability, Refusal> {
+    let c = registry
+        .iter()
+        .find(|c| c.id == id)
+        .ok_or_else(|| Refusal::UnknownCapability(id.to_owned()))?;
     let (capability, peer) = (c.id.to_owned(), c.peer.to_owned());
     let has = |list: &[String]| list.iter().any(|p| p == c.peer);
     if !has(&ctx.trusted) {

@@ -6,14 +6,26 @@
 //! step and the task. This module only carries messages: it turns
 //! dispatches into ordinary room requests, feeds room reports back in, and
 //! says what happened. A dry run sends nothing at all.
+//!
+//! Durable: with a node home, every task has a journal
+//! (`deaddrop_task::journal`) and each transition is committed to it before
+//! anything it implies is sent. On start every journal is replayed; a task
+//! that was running carries on from exactly its journaled state, and any
+//! message the journal says was sent but signed history does not hold is
+//! sent again with its original id. Nothing is rerun because the UI
+//! restarted. A terminal task's episode (`deaddrop_task::memory`) is derived
+//! from its journal.
 
 use std::collections::HashSet;
-use std::time::Instant;
+use std::path::{Path, PathBuf};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use deaddrop_room::{Kind, RoomMessage, short};
+use deaddrop_task::journal::{self, Fault, Journal};
+use deaddrop_task::memory::{self, Episode};
 use deaddrop_task::plan::{Plan, Proposed};
 use deaddrop_task::registry::Context;
-use deaddrop_task::run::{Dispatch, Outcome, TaskRun, Trace};
+use deaddrop_task::run::{Accepted, TaskRun, Trace};
 
 use super::{Action, App, RoomOutgoing, Row};
 
@@ -49,41 +61,65 @@ pub struct Logged {
     pub trace: Vec<Trace>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Live {
     pub room: String,
     pub run: TaskRun,
-    announced: bool,
+    /// Its journal; `None` only without a node home (tests).
+    journal: Option<Journal>,
+    /// Replayed from a journal: check signed history for anything the
+    /// journal sent that never left, once, after the first sync.
+    resume: bool,
+    /// The journal could not be written: the task stops here, visibly.
+    halted: Option<String>,
+    /// Its episode is kept.
+    remembered: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default)]
 pub struct Tasks {
     pub planning: Option<Planning>,
     pub live: Vec<Live>,
     pub notes: Vec<Note>,
     pub logged: Vec<Logged>,
     outbox: Vec<RoomOutgoing>,
-    /// Room reports already handed to a run.
-    seen: HashSet<String>,
-    /// Room message ids the task layer wrote this session: lifecycle
-    /// events and step requests. Shown as `λ wire`, never as `you`.
+    /// Room message ids the task layer wrote: lifecycle events and step
+    /// requests, this session and, from the journals, every earlier one.
+    /// Shown as `λ wire`, never as `you`.
     generated: HashSet<String>,
-    epoch: Instant,
+    /// The node home whose `tasks/` and `memory/` this uses.
+    home: Option<PathBuf>,
+    /// Injected journal failure (tests only).
+    fault: Option<Fault>,
 }
 
-impl Default for Tasks {
-    fn default() -> Self {
-        Self {
-            planning: None,
-            live: Vec::new(),
-            notes: Vec::new(),
-            logged: Vec::new(),
-            outbox: Vec::new(),
-            seen: HashSet::new(),
-            generated: HashSet::new(),
-            epoch: Instant::now(),
-        }
+/// Wall clock, in ms: step timeouts and journal times survive a restart.
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
+}
+
+/// Commit what `live.run` has not journaled yet. `false`: it could not,
+/// and the task is halted; nothing it implies may be sent.
+///
+/// Persist before act: on failure the run is rebuilt from the durable
+/// prefix alone, so no state the journal does not hold — an assignment, a
+/// completion, an episode — survives in memory either.
+fn commit(live: &mut Live) -> bool {
+    if live.halted.is_some() {
+        return false;
     }
+    let Some(journal) = &mut live.journal else {
+        return true;
+    };
+    let Err(e) = journal.catch_up(live.run.journal()) else {
+        return true;
+    };
+    let durable = &live.run.journal()[..journal.written()];
+    live.run = TaskRun::replay(&live.run.id, durable).expect("the durable prefix replays");
+    live.halted = Some(format!("journal write failed ({e}); nothing further sent"));
+    false
 }
 
 /// The plan, as a person reads it: steps, dependencies, workers.
@@ -245,29 +281,136 @@ impl App {
             return;
         }
         let steps = plan.steps.len();
-        // What you wrote, as you wrote it: yours.
-        let yours = format!("{}\n\n/task::wire", payload.trim());
-        if let Some(o) = self.room_outgoing(&room, Kind::Message, Vec::new(), yours, None) {
-            self.tasks.outbox.push(o);
+        let fresh = || deaddrop_protocol::MessageId::generate().to_string();
+        let accepted = Accepted {
+            room: room.clone(),
+            objective: payload.clone(),
+            human_message: fresh(),
+            accepted_message: fresh(),
+            at_ms: now_ms(),
+        };
+        let run = TaskRun::accept(id, accepted, plan);
+        // Journaled before anything is sent; no journal, no task.
+        let journal = match &self.tasks.home {
+            Some(home) => {
+                match Journal::create_with(home, id, run.journal(), self.tasks.fault.clone()) {
+                    Ok(j) => Some(j),
+                    Err(e) => {
+                        let why = format!("journal: {e}");
+                        self.status = format!("wire: task {id} not started · {why}");
+                        self.tasks.notes.push(Note {
+                            room,
+                            lines: vec![
+                                format!("task:: not started · {id}"),
+                                format!("reason:: {why}"),
+                            ],
+                        });
+                        return;
+                    }
+                }
+            }
+            None => None,
+        };
+        // What you wrote, as you wrote it: yours. That it was accepted: the
+        // wire's, not yours.
+        for m in run.messages() {
+            self.queue(&room, m);
         }
-        // That it was accepted: the wire's, not yours.
-        let text = format!("task:: accepted\nid:: {id}\nsteps:: {steps}");
-        self.task_message(&room, Kind::Message, Vec::new(), text, None);
         self.tasks.live.push(Live {
             room,
-            run: TaskRun::new(id, plan),
-            announced: false,
+            run,
+            journal,
+            resume: false,
+            halted: None,
+            remembered: false,
         });
         self.status = format!("wire: task {id} accepted · {steps} steps");
         self.advance_tasks();
     }
 
+    /// Replay every task journal under `home`, and use it from now on.
+    /// A task that cannot be replayed is not resumed and says why.
+    pub fn load_tasks(&mut self, home: &Path) {
+        self.tasks.home = Some(home.to_owned());
+        let journals = match journal::list(home) {
+            Ok(j) => j,
+            Err(e) => {
+                self.status = format!("wire: task journals: {e}");
+                return;
+            }
+        };
+        let mut problems = Vec::new();
+        for (task, path) in journals {
+            let opened = Journal::open(&path, &task).and_then(|(journal, loaded)| {
+                TaskRun::replay(&task, &loaded.records).map(|run| (journal, loaded.torn, run))
+            });
+            let (journal, torn, run) = match opened {
+                Ok(o) => o,
+                Err(e) => {
+                    problems.push(format!("{task}: {e} · not resumed"));
+                    continue;
+                }
+            };
+            if torn {
+                problems.push(format!("{task}: torn final commit discarded"));
+            }
+            for m in run.messages().into_iter().filter(|m| m.wire) {
+                self.tasks.generated.insert(m.id);
+            }
+            self.tasks.live.push(Live {
+                room: run.accepted.room.clone(),
+                // Even a finished task: its outcome line may never have left.
+                resume: true,
+                run,
+                journal: Some(journal.with_fault(self.tasks.fault.clone())),
+                halted: None,
+                remembered: false,
+            });
+        }
+        self.remember_tasks();
+        if !problems.is_empty() {
+            self.status = format!("wire: {}", problems.join(" · "));
+        }
+    }
+
+    /// Keep the episode of every terminal task whose journal is complete.
+    fn remember_tasks(&mut self) {
+        let Some(home) = self.tasks.home.clone() else {
+            return;
+        };
+        for live in &mut self.tasks.live {
+            if live.remembered || live.halted.is_some() || live.run.announced().is_none() {
+                continue;
+            }
+            let Some(episode) = Episode::derive(&live.run) else {
+                continue;
+            };
+            match memory::remember(&home, &episode) {
+                Ok(_) => live.remembered = true,
+                Err(e) => self.status = format!("wire: memory: {}: {e}", live.run.id),
+            }
+        }
+    }
+
     /// After every sync: hand new reports to running tasks, expire silent
-    /// steps, send whatever became ready, and announce outcomes once.
+    /// steps, send whatever became ready, and announce outcomes once. Each
+    /// task's transitions are journaled before any of it is sent.
     pub fn advance_tasks(&mut self) {
-        let now_ms = self.tasks.epoch.elapsed().as_millis() as u64;
-        let reports: Vec<(String, RoomMessage)> = self
-            .rows()
+        // Nothing is decided before the first sync: trust and membership
+        // are read from it.
+        if self.snapshot.is_none() {
+            return;
+        }
+        let now_ms = now_ms();
+        // Dispatch is authorized against the context as it is now, per room.
+        let contexts: Vec<(String, Context)> = self
+            .tasks
+            .live
+            .iter()
+            .map(|l| (l.room.clone(), self.task_context(&l.room)))
+            .collect();
+        let rows = self.rows();
+        let reports: Vec<(String, RoomMessage)> = rows
             .iter()
             .filter(|r| !r.outgoing())
             .filter_map(|r| {
@@ -275,76 +418,126 @@ impl App {
                 (m.kind == Kind::Report).then(|| (r.peer().to_owned(), m))
             })
             .collect();
-        let mut sends: Vec<(String, Dispatch)> = Vec::new();
-        let mut done: Vec<(String, String)> = Vec::new();
-        for live in &mut self.tasks.live {
-            if live.run.outcome.is_none() {
-                for (from, m) in &reports {
-                    if !self.tasks.seen.contains(&m.id) && live.run.observe(from, m) {
-                        self.tasks.seen.insert(m.id.clone());
+        // Room messages signed history holds as sent by this node.
+        let synced = self.snapshot.is_some();
+        let sent: HashSet<String> = rows
+            .iter()
+            .filter(|r| r.outgoing())
+            .filter_map(|r| r.room().map(|m| m.id))
+            .collect();
+        drop(rows);
+        let mut queue: Vec<(String, deaddrop_task::run::Message)> = Vec::new();
+        let mut halted = Vec::new();
+        let mut notes = Vec::new();
+        for (live, (_, ctx)) in self.tasks.live.iter_mut().zip(&contexts) {
+            if live.halted.is_some() {
+                continue;
+            }
+            // Journaled as sent, missing from signed history: it never
+            // left. The same message, the same id; never a new request.
+            if live.resume && synced {
+                live.resume = false;
+                for m in live.run.messages() {
+                    if !sent.contains(&m.id) {
+                        queue.push((live.room.clone(), m));
                     }
                 }
+            }
+            let before = live.run.journal().len();
+            if live.run.outcome.is_none() {
+                for (from, m) in &reports {
+                    live.run.observe(from, m, now_ms);
+                }
                 live.run.expire(now_ms);
-                let ready = live.run.ready(now_ms, || {
+                live.run.ready(now_ms, ctx, || {
                     deaddrop_protocol::MessageId::generate().to_string()
                 });
-                sends.extend(ready.into_iter().map(|d| (live.room.clone(), d)));
             }
-            if let (Some(outcome), false) = (&live.run.outcome, live.announced) {
-                live.announced = true;
-                let id = &live.run.id;
-                let text = match outcome {
-                    Outcome::Complete => {
-                        let by = live
-                            .run
-                            .result()
-                            .map(|r| short(&r.from).to_owned())
-                            .unwrap_or_default();
-                        format!("task:: complete\nid:: {id}\nresult:: the {by} report above")
-                    }
-                    Outcome::Failed(why) => format!("task:: failed\nid:: {id}\nreason:: {why}"),
-                };
-                done.push((live.room.clone(), text));
+            if live.run.outcome.is_some() && live.run.announced().is_none() {
+                live.run
+                    .announce(&deaddrop_protocol::MessageId::generate().to_string());
+            }
+            if live.run.journal().len() == before {
+                continue;
+            }
+            if !commit(live) {
+                let why = live.halted.clone().unwrap_or_default();
+                halted.push(format!("{} halted · {why}", live.run.id));
+                // Local only: sending anything would need the journal.
+                notes.push(Note {
+                    room: live.room.clone(),
+                    lines: vec![
+                        format!("task:: halted · {}", live.run.id),
+                        "reason:: the task journal could not be written; nothing further was sent"
+                            .into(),
+                        "resume:: restart to continue from the last durable state".into(),
+                    ],
+                });
+                continue;
+            }
+            // What this pass journaled to send: new requests, the outcome.
+            let new_records = &live.run.journal()[before..];
+            for m in live.run.messages() {
+                let new = new_records.iter().any(|r| match r {
+                    journal::Record::StepAssigned { request, .. } => *request == m.id,
+                    journal::Record::Announced { message } => *message == m.id,
+                    _ => false,
+                });
+                if new {
+                    queue.push((live.room.clone(), m));
+                }
             }
         }
-        for (room, d) in sends {
-            let mention = vec![d.worker.clone()];
-            self.task_message(&room, Kind::Request, mention, d.text, Some(d.request));
+        for (room, m) in queue {
+            self.queue(&room, m);
         }
-        for (room, text) in done {
-            self.task_message(&room, Kind::Message, Vec::new(), text, None);
+        self.tasks.notes.extend(notes);
+        if !halted.is_empty() {
+            self.status = format!("wire: {}", halted.join(" · "));
         }
+        self.remember_tasks();
     }
 
-    /// A room message the task layer writes: queued, and remembered as the
-    /// wire's own so it is never shown as yours.
-    fn task_message(
-        &mut self,
-        room: &str,
-        kind: Kind,
-        mentions: Vec<String>,
-        text: String,
-        id: Option<String>,
-    ) {
-        if let Some(o) = self.room_outgoing(room, kind, mentions, text, id) {
-            self.tasks.generated.insert(o.id.clone());
+    /// Tests only: make task journal appends fail after `fault` allows,
+    /// for journals open now and opened later.
+    #[doc(hidden)]
+    pub fn inject_journal_fault(&mut self, fault: Fault) {
+        for live in &mut self.tasks.live {
+            if let Some(j) = live.journal.take() {
+                live.journal = Some(j.with_fault(Some(fault.clone())));
+            }
+        }
+        self.tasks.fault = Some(fault);
+    }
+
+    /// Whether a task in `room` was halted by a journal failure.
+    pub fn task_halted(&self, room: &str) -> Option<&str> {
+        self.tasks
+            .live
+            .iter()
+            .filter(|l| l.room == room)
+            .find_map(|l| l.halted.as_deref())
+    }
+
+    /// Queue one of a task's journaled room messages, under its own id.
+    fn queue(&mut self, room: &str, m: deaddrop_task::run::Message) {
+        if let Some(o) = self.room_outgoing(room, m.kind, m.mentions, m.text, Some(m.id)) {
+            if m.wire {
+                self.tasks.generated.insert(o.id.clone());
+            }
             self.tasks.outbox.push(o);
         }
     }
 
     /// Whether `row` is the wire's (task lifecycle or step request) rather
-    /// than yours. This session: exactly the ids the task layer wrote. From
-    /// an earlier session, where those ids are gone: your room messages
-    /// that are task lines (`task:: …` first), which only the wire writes.
+    /// than yours: exactly the ids the task journals say the wire wrote,
+    /// this session or any earlier one. Never read from the text: a line
+    /// you type that looks like a task line is still yours.
     pub fn wire_authored(&self, row: &Row<'_>) -> bool {
-        if !row.outgoing() {
-            return false;
-        }
-        let Some(m) = row.room() else {
-            return false;
-        };
-        self.tasks.generated.contains(&m.id)
-            || (self.is_earlier(row.id()) && m.text.starts_with("task:: "))
+        row.outgoing()
+            && row
+                .room()
+                .is_some_and(|m| self.tasks.generated.contains(&m.id))
     }
 
     /// One room message from you, for every other member.
@@ -436,6 +629,10 @@ impl App {
 
     /// Whether any live task still has steps out.
     pub fn task_running(&self) -> bool {
-        self.tasks.live.iter().any(|l| l.run.outcome.is_none()) || self.tasks.planning.is_some()
+        self.tasks
+            .live
+            .iter()
+            .any(|l| l.run.outcome.is_none() && l.halted.is_none())
+            || self.tasks.planning.is_some()
     }
 }

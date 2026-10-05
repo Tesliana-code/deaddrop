@@ -3507,8 +3507,52 @@ mod tests {
     }
 
     #[test]
+    fn a_task_that_cannot_be_journaled_never_starts() {
+        let not_a_dir =
+            std::env::temp_dir().join(format!("deaddrop-ui-nojournal-{}", std::process::id()));
+        std::fs::write(&not_a_dir, "a file, not a home").unwrap();
+        let (mut app, _) = task_app();
+        app.load_tasks(&not_a_dir);
+        for c in format!("{TASK_TEXT}\n/task::wire").chars() {
+            app.key(if c == '\n' {
+                Key::Newline
+            } else {
+                Key::Char(c)
+            });
+        }
+        let Action::PlanTask(request) = app.key(Key::Enter) else {
+            panic!("{}", app.status)
+        };
+        app.planned(&request.id, Ok(proposed()));
+        assert!(
+            app.take_task_sends().is_empty(),
+            "nothing sent without a journal"
+        );
+        assert!(app.status.contains("not started"), "{}", app.status);
+        assert!(!app.task_running());
+        let _ = std::fs::remove_file(&not_a_dir);
+    }
+
+    #[test]
     fn task_provenance_from_an_earlier_session_and_typed_by_hand() {
-        let (_, mut snap) = task_app();
+        let home =
+            std::env::temp_dir().join(format!("deaddrop-ui-provenance-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        // Session one: a real task, journaled.
+        let (mut app, mut snap) = task_app();
+        app.load_tasks(&home);
+        for c in format!("{TASK_TEXT}\n/task::wire").chars() {
+            app.key(if c == '\n' {
+                Key::Newline
+            } else {
+                Key::Char(c)
+            });
+        }
+        let Action::PlanTask(request) = app.key(Key::Enter) else {
+            panic!("{}", app.status)
+        };
+        app.planned(&request.id, Ok(proposed()));
+        store(&mut snap, &app.take_task_sends());
         let msg = |id: &str, text: &str| crate::snapshot::Sent {
             id: id.into(),
             to: RESEARCH.into(),
@@ -3530,25 +3574,34 @@ mod tests {
             acked_by: vec![],
             raw: String::new(),
         };
-        // Stored before this session: the wire's lifecycle line.
+        // Typed by the person, earlier: looks like a wire line, is not one.
         snap.sent
             .push(msg("old", "task:: complete\nid:: T-000001\nresult:: done"));
-        let mut app = App::new();
-        app.set_rooms(vec![deaddrop_room::RoomConfig {
-            name: "d34ddr0p".into(),
-            members: vec!["iva:local:deaddrop".into(), RESEARCH.into()],
-        }]);
+        // Session two: a fresh UI, provenance from the journal alone.
+        let (mut app, _) = task_app();
+        app.load_tasks(&home);
         app.begin_refresh();
         app.finish(Ok(snap.clone()));
-        // This session, typed by the person: theirs, whatever it says.
         snap.sent
             .push(msg("typed", "task:: this is just me talking"));
         app.begin_refresh();
         app.finish(Ok(snap));
         app.key(Key::ClickRoom(0));
-        let rows = frame(&mut app, 140, 30);
-        assert!(label_of(&rows, "task:: complete").starts_with("λ wire"));
+        let rows = frame(&mut app, 140, 60);
+        assert!(label_of(&rows, "task:: accepted").starts_with("λ wire"));
+        assert!(label_of(&rows, "latest Rust release?").starts_with("λ wire"));
+        assert_eq!(
+            label_of(&rows, "/task::wire"),
+            "you",
+            "the human's own words"
+        );
+        assert_eq!(
+            label_of(&rows, "task:: complete"),
+            "you",
+            "never read from text"
+        );
         assert_eq!(label_of(&rows, "just me talking"), "you");
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     // --- Agent Bus V0: room scrolling (same engine as DMs). ---

@@ -4,7 +4,7 @@
 
 use serde::Deserialize;
 
-use crate::registry::{self, Context, GITHUB_INSPECT, SYNTHESIZE, WEB_SEARCH};
+use crate::registry::{self, Context, GITHUB_INSPECT, Mode, SYNTHESIZE, WEB_SEARCH};
 
 pub const MAX_STEPS: usize = 5;
 pub const MAX_WORKERS: usize = 3;
@@ -36,6 +36,8 @@ pub struct Step {
     pub id: String,
     pub capability: &'static str,
     pub worker: String,
+    /// The authority the capability had when the plan was validated.
+    pub mode: Mode,
     pub objective: String,
     pub depends_on: Vec<String>,
     /// What the worker is sent, without the task header. For
@@ -157,6 +159,7 @@ pub fn validate(task: &str, proposed: &Proposed, ctx: &Context) -> Result<Plan, 
             id: p.id.clone(),
             capability: c.id,
             worker: c.peer.to_owned(),
+            mode: c.mode,
             objective: objective.to_owned(),
             depends_on: p.depends_on.clone(),
             request,
@@ -186,7 +189,7 @@ fn first(text: &str) -> &str {
 }
 
 /// Kahn's algorithm: every step must become ready at some point.
-fn acyclic(steps: &[Step]) -> Result<(), String> {
+pub(crate) fn acyclic(steps: &[Step]) -> Result<(), String> {
     let mut done: Vec<&str> = Vec::new();
     while done.len() < steps.len() {
         let ready: Vec<&str> = steps

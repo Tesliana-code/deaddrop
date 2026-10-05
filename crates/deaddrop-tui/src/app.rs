@@ -478,7 +478,7 @@ impl<'a> Row<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct App {
     pub snapshot: Option<Snapshot>,
     pub focus: Focus,

@@ -291,6 +291,9 @@ fn run(
         Ok(rooms) => app.set_rooms(rooms),
         Err(error) => app.status = format!("rooms: {error}"),
     }
+    // Every task journal, replayed: running tasks carry on after the first
+    // sync, from exactly what was journaled.
+    app.load_tasks(home);
     if let Some(peer) = open {
         app.open_on(peer);
     }

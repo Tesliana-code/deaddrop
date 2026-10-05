@@ -15,6 +15,8 @@
 //! here can grant a worker more than its capability's read-only or
 //! report-only mode.
 
+pub mod journal;
+pub mod memory;
 pub mod plan;
 pub mod planner;
 pub mod registry;
@@ -25,7 +27,18 @@ pub fn task_id(fresh: &str) -> String {
     let hex: String = fresh
         .chars()
         .filter(char::is_ascii_hexdigit)
+        .map(|c| c.to_ascii_lowercase())
         .take(6)
         .collect();
     format!("T-{hex}")
+}
+
+/// Whether `id` is a task id: `T-` and six lowercase hex digits.
+pub fn is_task_id(id: &str) -> bool {
+    id.strip_prefix("T-").is_some_and(|hex| {
+        hex.len() == 6
+            && hex
+                .chars()
+                .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+    })
 }
