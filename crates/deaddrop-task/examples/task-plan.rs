@@ -26,7 +26,7 @@ fn main() {
         may_ask: peers,
     };
     let started = Instant::now();
-    let proposed = planner.propose(&task);
+    let proposed = planner.propose(&task, None);
     let ms = started.elapsed().as_millis();
     match proposed.and_then(|p| validate(&task, &p, &ctx)) {
         Ok(plan) => {

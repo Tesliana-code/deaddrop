@@ -27,7 +27,7 @@ use agent_wire_coordinate::{
 };
 use deaddrop_room::{Kind, RoomMessage, Status, short};
 
-use crate::journal::{JournalError, PlannedStep, Record};
+use crate::journal::{JournalError, PlannedStep, RecallUsed, Record};
 use crate::plan::{Plan, Step};
 use crate::registry::{
     Capability, Context, GITHUB_INSPECT, Mode, REGISTRY, Refusal, SYNTHESIZE, WEB_SEARCH,
@@ -143,6 +143,8 @@ pub struct Accepted {
     pub human_message: String,
     pub accepted_message: String,
     pub at_ms: u64,
+    /// The episodes its plan was informed by, if the human asked for that.
+    pub recall: Option<RecallUsed>,
 }
 
 /// A room message the task's journal says was meant to be sent.
@@ -186,6 +188,19 @@ impl Clone for TaskRun {
 }
 
 const ORCHESTRATOR: &str = "orchestrator";
+
+/// The wire's account of a memory read: how many episodes, from which
+/// scope, by reference. Never the recalled text.
+pub fn memory_read(r: &RecallUsed) -> Trace {
+    let mut fields = vec![
+        ("memory_read", format!("{} episodes", r.episodes.len())),
+        ("scope", r.scope.clone()),
+    ];
+    if !r.episodes.is_empty() {
+        fields.push(("refs", r.episodes.join(", ")));
+    }
+    trace(ORCHESTRATOR, None, fields)
+}
 
 fn trace(from: &str, to: Option<&str>, fields: Vec<(&'static str, String)>) -> Trace {
     Trace {
@@ -291,6 +306,7 @@ impl TaskRun {
                 human_message: accepted.human_message,
                 accepted_message: accepted.accepted_message,
                 at_ms: accepted.at_ms,
+                recall: accepted.recall,
             },
             Record::PlanValidated {
                 steps: plan.steps.iter().map(PlannedStep::from).collect(),
@@ -312,6 +328,7 @@ impl TaskRun {
             human_message,
             accepted_message,
             at_ms,
+            recall,
         }) = records.first()
         else {
             return Err(err(0, "the first record is not task_accepted".into()));
@@ -330,14 +347,19 @@ impl TaskRun {
                 human_message: human_message.clone(),
                 accepted_message: accepted_message.clone(),
                 at_ms: *at_ms,
+                recall: recall.clone(),
             },
             states: vec![StepState::Waiting; n],
             reports: vec![None; n],
-            trace: vec![trace(
-                ORCHESTRATOR,
-                None,
-                vec![("plan", format!("accepted · {n} steps"))],
-            )],
+            trace: recall
+                .iter()
+                .map(memory_read)
+                .chain([trace(
+                    ORCHESTRATOR,
+                    None,
+                    vec![("plan", format!("accepted · {n} steps"))],
+                )])
+                .collect(),
             outcome: None,
             wire: Orchestrator::new(HistoryId::new(id), workers),
             wire_logged: 0,
@@ -1009,7 +1031,12 @@ impl TaskRun {
                 &a.human_message,
                 Kind::Message,
                 Vec::new(),
-                format!("{}\n\n/task::wire", a.objective.trim()),
+                // As the human wrote it: with `--recall` if they asked.
+                format!(
+                    "{}\n\n/task::wire{}",
+                    a.objective.trim(),
+                    if a.recall.is_some() { " --recall" } else { "" }
+                ),
                 false,
             ),
             message(
@@ -1090,6 +1117,7 @@ pub(crate) mod tests {
             human_message: "human-1".into(),
             accepted_message: "accepted-1".into(),
             at_ms: 1_000,
+            recall: None,
         }
     }
 

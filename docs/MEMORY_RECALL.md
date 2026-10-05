@@ -102,18 +102,72 @@ rebuilt from its journal before it is read. A corrupt journal fails closed:
 its task is withheld (counted in `withheld`), a stale episode file is never
 served in its place, and a query naming that task is an error.
 
-## Not yet
+## `/task::wire --recall`
 
-Nothing in `/task::wire` calls recall: the planner, Research, GitHub and
-Klodik receive exactly what they did before. `RecallBundle::context_text()`
-is a formatter only.
+The one runtime reader of memory. The human opts in per task:
 
-No `memory_read` wire event exists, because no runtime caller reads memory.
-When one does, each read is to appear on the wire as:
+```text
+Summarize the current architecture boundary between Deaddrop and Agent Wire.
+
+/task::wire --recall
+```
+
+- **Recall is opt-in.** Plain `/task::wire` reads no memory: the planner's
+  input is byte for byte what it was, and no `memory_read` appears.
+- **Recall is room-scoped.** The caller is derived, never named:
+  `Caller::Orchestrator { room: <the task's room> }`. The command accepts no
+  room, scope, caller or project; another room's episodes are never shown,
+  however recent.
+- **Recall is bounded.** The 3 most recent episodes of the room, complete and
+  failed alike, newest terminal first (`recall::for_task`). Nothing is matched
+  against the task text: no keywords, no ranking, no embeddings. The planner
+  is handed `RecallBundle::context_text()` (≤ 8 KiB, refs first, no report
+  bodies) after the task, under a preamble saying it is history only. A
+  failed episode is shown as failed, with its reason and its successful
+  evidence refs.
+- **Recall is advisory.** The planner may read it; the deterministic
+  validator, current policy (`DEADDROP_TASK_MAY_ASK`), trust, room membership,
+  the capability registry and the dispatch re-check decide exactly as they do
+  without it.
+- **Recall does not restore authority.** An episode in which a worker
+  succeeded does not let a task ask that worker once policy no longer does.
+- **Workers do not receive direct memory-store access.** Research, GitHub and
+  Klodik get only their step requests; no memory text is added to them, and
+  there is no memory capability, endpoint or file access for peers.
+
+Each read appears on the wire, local to you, by reference:
 
 ```text
 λ wire
-memory_read:: episode/T-…
-query:: capability=github.inspect
+memory_read:: 3 episodes
 scope:: room/d34ddr0p
+refs:: episode/T-…, episode/T-…, episode/T-…
 ```
+
+An empty read is still a read (`memory_read:: 0 episodes`, no `refs`).
+
+A read that cannot establish truth stops the task before planning: no
+planner call, no worker, a visible `task:: not started · …` and the draft
+left unsent. It never falls back to planning without memory. Any withheld
+(unreplayable) journal counts: its task might be this room's newest episode.
+
+Durability. An accepted memory-assisted task's `task_accepted` journal record
+carries `"recall":{"scope":"room/…","episodes":["episode/T-…",…]}` — refs
+only, never the recalled text — and replay puts `memory_read` back into its
+trace. A plain task's record has no `recall` key. The human's room message is
+re-sent as written, ending `/task::wire --recall`. A memory-assisted task that
+is rejected, fails to plan or is a dry run never reaches the journal; its read
+is shown locally only (λ wire note and trace), as every never-run task is.
+
+Rollback boundary. Once a `task_accepted` record carrying `recall` has been
+written, binaries predating Explicit Task Recall V0 may reject that journal:
+journal records are `deny_unknown_fields`. This is intentional fail-closed
+behavior. Rollback compatibility across this checkpoint is not promised.
+
+`--dry-run --recall` (either order) reads and plans locally, then stops:
+`recall:: enabled`, `episodes:: N`, nothing was run.
+
+## Not yet
+
+No peer-facing recall, no memory in worker requests, no relevance selection,
+no L3 knowledge, no automatic recall.

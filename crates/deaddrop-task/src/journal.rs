@@ -64,6 +64,18 @@ pub struct PlannedStep {
     pub request: String,
 }
 
+/// Which memory a task's plan was informed by: present only when the human
+/// asked with `/task::wire --recall`. Refs only, never recalled text.
+/// Historical provenance: it authorizes nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecallUsed {
+    /// What the orchestrator could read: `room/<name>`.
+    pub scope: String,
+    /// `episode/<task id>` of every episode the planner was shown, in order.
+    pub episodes: Vec<String>,
+}
+
 /// One durable task transition. There is no record a worker writes: every
 /// one is the orchestrator's, or Agent Wire's own event.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,6 +89,9 @@ pub enum Record {
         human_message: String,
         accepted_message: String,
         at_ms: u64,
+        /// Absent (and not written) for a task planned without recall.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        recall: Option<RecallUsed>,
     },
     /// The plan as validated: every capability resolved to its worker.
     PlanValidated {
@@ -514,6 +529,42 @@ mod tests {
             records: records.to_vec(),
         };
         format!("{}\n", serde_json::to_string(&entry).unwrap())
+    }
+
+    #[test]
+    fn recall_provenance_is_written_only_when_used() {
+        let accepted = |recall| Record::TaskAccepted {
+            room: "d34ddr0p".into(),
+            objective: "o".into(),
+            human_message: "h".into(),
+            accepted_message: "a".into(),
+            at_ms: 1,
+            recall,
+        };
+        // Without recall: the record is byte for byte what it always was.
+        let plain = serde_json::to_string(&accepted(None)).unwrap();
+        assert_eq!(
+            plain,
+            r#"{"task_accepted":{"room":"d34ddr0p","objective":"o","human_message":"h","accepted_message":"a","at_ms":1}}"#
+        );
+        assert_eq!(
+            serde_json::from_str::<Record>(&plain).unwrap(),
+            accepted(None)
+        );
+        let used = accepted(Some(RecallUsed {
+            scope: "room/d34ddr0p".into(),
+            episodes: vec!["episode/T-00000a".into()],
+        }));
+        let text = serde_json::to_string(&used).unwrap();
+        assert!(
+            text.ends_with(
+                r#""recall":{"scope":"room/d34ddr0p","episodes":["episode/T-00000a"]}}}"#
+            )
+        );
+        assert_eq!(serde_json::from_str::<Record>(&text).unwrap(), used);
+        // Strict as every record: nothing else rides along.
+        let extra = text.replace(r#""episodes""#, r#""text":"x","episodes""#);
+        assert!(serde_json::from_str::<Record>(&extra).is_err());
     }
 
     #[test]

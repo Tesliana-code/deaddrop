@@ -434,7 +434,7 @@ fn run(
                 let updates = planned.clone();
                 std::thread::spawn(move || {
                     use deaddrop_task::planner::Planner;
-                    let proposed = planner().propose(&request.payload);
+                    let proposed = planner().propose(&request.payload, request.memory.as_deref());
                     let _ = updates.send(Update::Planned(request.id, proposed));
                 });
             }

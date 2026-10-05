@@ -1014,9 +1014,13 @@ impl App {
                 // is intent, never chat; an invalid one is an error, never chat.
                 match deaddrop_wire_command::parse(&compose.draft) {
                     deaddrop_wire_command::Parsed::Command(
-                        deaddrop_wire_command::WireCommand::Task { payload, dry_run },
+                        deaddrop_wire_command::WireCommand::Task {
+                            payload,
+                            dry_run,
+                            recall,
+                        },
                     ) => {
-                        return self.start_task(payload, dry_run);
+                        return self.start_task(payload, dry_run, recall);
                     }
                     deaddrop_wire_command::Parsed::Command(command) => {
                         self.status = format!(

@@ -8,8 +8,13 @@
 //!
 //! Recall may inform a decision; it never becomes the decision authority.
 //! A bundle is plain data: it adds no trust, policy, capability, route or
-//! completion, and nothing in /task::wire reads it. Matching is structured
-//! and exact; each item says which filters it matched, never a score.
+//! completion. Matching is structured and exact; each item says which
+//! filters it matched, never a score.
+//!
+//! The one runtime reader is `/task::wire --recall` ([`for_task`]): the
+//! human opts in, the orchestrator reads its own room, and the planner is
+//! shown [`RecallBundle::context_text`]. The validator, policy and every
+//! dispatch re-check decide exactly as they do without it.
 //!
 //! Membership of the skupljen is not access to memory: a trusted peer has a
 //! channel and an allowed worker may be asked, but neither reads an episode.
@@ -145,6 +150,34 @@ pub struct RecallBundle {
 }
 
 const ORDER: &str = "newest terminal first; task id descending on a tie";
+
+/// Episodes `/task::wire --recall` shows the planner.
+pub const TASK_RECALL_LIMIT: usize = 3;
+
+/// The read behind `/task::wire --recall`: as the orchestrator of `room`,
+/// that room's [`TASK_RECALL_LIMIT`] most recent episodes, complete and
+/// failed alike, newest first. Nothing is matched against the task text.
+///
+/// Fails closed: a journal that cannot be replayed might be this room's
+/// newest episode, so with any withheld the room's recent history is not
+/// established and nothing is returned.
+pub fn for_task(home: &Path, room: &str) -> Result<RecallBundle, RecallError> {
+    let caller = Caller::Orchestrator {
+        room: room.to_owned(),
+    };
+    let query = Query {
+        limit: Some(TASK_RECALL_LIMIT),
+        ..Query::default()
+    };
+    let bundle = recall(&caller, home, &query)?;
+    if bundle.withheld > 0 {
+        return Err(RecallError::Store(format!(
+            "{} unreadable journals; recent episodes of {} cannot be established",
+            bundle.withheld, bundle.scope
+        )));
+    }
+    Ok(bundle)
+}
 
 /// Recall episodes for `caller`. Reads journals and brings derived episode
 /// files in line with them (as [`memory::recall`] does); writes nothing
@@ -354,9 +387,16 @@ impl RecallItem {
 }
 
 impl RecallBundle {
+    /// What a task planned with this bundle keeps: scope and episode refs.
+    pub fn used(&self) -> crate::journal::RecallUsed {
+        crate::journal::RecallUsed {
+            scope: self.scope.clone(),
+            episodes: self.episodes.iter().map(|i| i.episode_id.clone()).collect(),
+        }
+    }
+
     /// A small, provenance-rich text block, at most [`MAX_CONTEXT_BYTES`].
     /// Whole episodes only: one that does not fit is counted, not cut.
-    /// A formatter only — nothing in /task::wire calls it.
     pub fn context_text(&self) -> String {
         let line = |s: &str| clip(s, MAX_LINE_CHARS, &mut false) + "\n";
         let mut out = line("MEMORY RECALL · read-only · grants no authority");
@@ -694,7 +734,7 @@ mod tests {
     }
 
     #[test]
-    fn recall_mutates_nothing_and_is_not_wired_into_tasks() {
+    fn recall_mutates_nothing_and_tasks_never_read_memory_themselves() {
         let home = seeded("readonly");
         let op = Caller::Operator;
         recall(&op, &home, &Query::default()).unwrap();
@@ -704,15 +744,72 @@ mod tests {
             let _ = b.context_text();
         }
         assert_eq!(files(&home), before, "journals and episodes untouched");
-        // Nothing in the task path reads memory: planning is unchanged.
+        // The planner, validator, run and registry never read memory: the
+        // planner is handed a block, and only for `--recall`.
         for src in [
             include_str!("planner.rs"),
             include_str!("plan.rs"),
             include_str!("run.rs"),
             include_str!("registry.rs"),
         ] {
-            assert!(!src.contains("recall") && !src.contains("memory::"));
+            for reader in ["recall::", "recall(", "memory::", "for_task", "Caller"] {
+                assert!(!src.contains(reader), "{reader}");
+            }
         }
+    }
+
+    #[test]
+    fn task_recall_is_this_room_newest_three_failed_kept() {
+        let home = seeded("task");
+        task_in(&home, ROOM, "T-00000e", 50, Status::Ok);
+        // b4ckr00m's episode is the newest of all, and never shown here.
+        task_in(&home, "b4ckr00m", "T-00000f", 900, Status::Ok);
+        let b = for_task(&home, ROOM).unwrap();
+        let ids: Vec<&str> = b.episodes.iter().map(|i| &i.task_id[..]).collect();
+        assert_eq!(ids, ["T-00000c", "T-00000b", "T-00000a"]);
+        assert_eq!(
+            (b.scope.as_str(), b.limit, b.truncated),
+            ("room/d34ddr0p", 3, true)
+        );
+        assert_eq!(b.query, ["room=d34ddr0p", "recent=3"], "no status filter");
+        assert_eq!(b.episodes[1].status, "failed");
+        assert!(b.episodes[1].failure_reason.is_some());
+        assert!(!b.episodes[1].evidence_refs.is_empty());
+        assert_eq!(
+            b.used(),
+            crate::journal::RecallUsed {
+                scope: "room/d34ddr0p".into(),
+                episodes: vec![
+                    "episode/T-00000c".into(),
+                    "episode/T-00000b".into(),
+                    "episode/T-00000a".into()
+                ],
+            }
+        );
+        let text = b.context_text();
+        assert!(text.len() <= MAX_CONTEXT_BYTES);
+        assert!(!text.contains("b4ckr00m") && !text.contains("T-00000f"));
+        assert!(!text.contains(SECRET), "no report text");
+        // Deterministic.
+        assert_eq!(for_task(&home, ROOM).unwrap(), b);
+        // A room with no episodes: a real, empty read.
+        let empty = for_task(&home, "empty").unwrap();
+        assert!(empty.episodes.is_empty());
+        assert_eq!(empty.used().episodes.len(), 0);
+        assert!(empty.context_text().contains("no episodes"));
+        let none = for_task(&self::home("recall-task-none"), ROOM).unwrap();
+        assert!(none.episodes.is_empty());
+        // Any unreadable journal: the room's recent history is unknown.
+        let j = journal::path(&home, "T-00000c");
+        let text = std::fs::read_to_string(&j)
+            .unwrap()
+            .replacen("\"n\":2", "\"n\":9", 1);
+        std::fs::write(&j, text).unwrap();
+        assert!(matches!(for_task(&home, ROOM), Err(RecallError::Store(_))));
+        assert!(matches!(
+            for_task(&home, "b4ckr00m"),
+            Err(RecallError::Store(_))
+        ));
     }
 
     #[test]

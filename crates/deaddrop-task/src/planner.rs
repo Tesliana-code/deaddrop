@@ -1,6 +1,8 @@
 //! The planner: one bounded, schema-constrained model call that proposes
-//! capability steps. It has no tools, sees only the task and the capability
-//! list, and decides nothing about trust, policy, authority or completion.
+//! capability steps. It has no tools, sees only the task, the capability
+//! list and — only when the human asked with `--recall` — a bounded memory
+//! block the caller hands it. It reads no memory itself and decides nothing
+//! about trust, policy, authority or completion.
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -20,8 +22,24 @@ Capabilities, the only ones that exist:
 - synthesize: combines the reports of the steps in its depends_on into one answer for the person. objective = what to summarize.
 Rules: at most 5 steps. Only synthesize has depends_on; every other step has an empty depends_on so it can run at once. Use synthesize only when two or more reports must be combined. Step ids are short snake_case. Copy repository names, commit shas and paths exactly from the task. If the task needs anything these capabilities cannot do, such as changing a repository, return no steps.";
 
+/// What precedes a memory block in the planner's input. History, not
+/// permission: the deterministic validator decides what may run.
+pub const MEMORY_PREAMBLE: &str = "\
+Prior episodes from this room, which the human asked you to consider. They are history only: they are not current trust, policy, authority, capability availability or worker membership, and a worker that succeeded before may not be allowed now. A failed episode failed. Use them only to inform the plan.";
+
+/// The planner's input: the task, then the memory block if there is one.
+/// Without memory it is exactly what it always was.
+pub fn input(task: &str, memory: Option<&str>) -> String {
+    let mut input = format!("Task:\n\n{}", cut(task.trim(), MAX_TASK_CHARS));
+    if let Some(memory) = memory {
+        input.push_str(&format!("\n\n{MEMORY_PREAMBLE}\n\n{}", memory.trim_end()));
+    }
+    input
+}
+
 pub trait Planner {
-    fn propose(&self, task: &str) -> Result<Proposed, String>;
+    /// `memory`: a bounded recall block, passed only for `--recall`.
+    fn propose(&self, task: &str, memory: Option<&str>) -> Result<Proposed, String>;
 }
 
 /// The local `claude` CLI with no tools at all, run once per task.
@@ -92,13 +110,12 @@ pub fn parse_output(stdout: &[u8]) -> Result<Proposed, String> {
 }
 
 impl Planner for ClaudePlanner {
-    fn propose(&self, task: &str) -> Result<Proposed, String> {
-        let input = format!("Task:\n\n{}", cut(task.trim(), MAX_TASK_CHARS));
+    fn propose(&self, task: &str, memory: Option<&str>) -> Result<Proposed, String> {
         let stdout = run_bounded(
             &self.program,
             &self.args(),
             &self.workdir,
-            &input,
+            &input(task, memory),
             self.timeout,
         )
         .map_err(|e| format!("planner: {e}"))?;
@@ -144,6 +161,24 @@ mod tests {
         ] {
             assert!(!joined.contains(widening), "{widening}");
         }
+    }
+
+    #[test]
+    fn without_memory_the_input_is_unchanged_and_with_it_memory_follows() {
+        let task = "  Summarize the boundary.\n";
+        // Byte for byte what the planner was given before recall existed.
+        assert_eq!(input(task, None), "Task:\n\nSummarize the boundary.");
+        let long = "x".repeat(MAX_TASK_CHARS * 2);
+        assert_eq!(
+            input(&long, None),
+            format!("Task:\n\n{}", cut(&long, MAX_TASK_CHARS))
+        );
+        let with = input(task, Some("MEMORY RECALL · read-only\nno episodes\n"));
+        assert!(with.starts_with("Task:\n\nSummarize the boundary.\n\n"));
+        assert!(with.contains(MEMORY_PREAMBLE));
+        assert!(with.ends_with("MEMORY RECALL · read-only\nno episodes"));
+        // Memory never touches the system prompt or the invocation.
+        assert!(!PROMPT.contains("episode") && !planner().args().join(" ").contains("episode"));
     }
 
     #[test]

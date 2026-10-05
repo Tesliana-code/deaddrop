@@ -1015,3 +1015,444 @@ fn an_outcome_journaled_but_never_sent_is_sent_once_after_restart() {
         )]
     );
 }
+
+// --- /task::wire --recall: explicit, room-scoped, advisory memory. ---
+
+const ELSEWHERE: &str = "b4ckr00m";
+
+/// One real task in the room, to its end, with every worker allowed: an
+/// episode in Iva's memory. `research` decides complete or failed.
+fn finished(w: &World, app: &mut App, research: Runtime) -> String {
+    let mut peers = [
+        w.peer(RESEARCH, research),
+        w.peer(GITHUB, Runtime::ok(YES)),
+        w.peer(KLODIK, Runtime::ok(SUMMARY)),
+    ];
+    let request = w.enter(app, "/task::wire");
+    app.planned(&request.id, Ok(golden()));
+    w.deliver(app);
+    for _ in 0..6 {
+        for p in &mut peers {
+            p.step().unwrap();
+        }
+        w.sync(app);
+    }
+    assert!(episode(w, &request.id).is_some(), "{}", app.status);
+    request.id
+}
+
+/// A finished task journaled in another room, newer than anything here.
+/// That room is not configured in the UI, so nothing of it is ever sent.
+fn finished_elsewhere(w: &World, id: &str) {
+    use deaddrop_room::Status;
+    use deaddrop_task::run::{Accepted, TaskRun};
+    let all: Vec<String> = [RESEARCH, GITHUB, KLODIK].map(str::to_owned).to_vec();
+    let ctx = deaddrop_task::registry::Context {
+        trusted: all.clone(),
+        members: all.clone(),
+        may_ask: all,
+    };
+    let at = u64::MAX / 2;
+    let accepted = Accepted {
+        room: ELSEWHERE.into(),
+        objective: "the other room's private objective".into(),
+        human_message: format!("h-{id}"),
+        accepted_message: format!("a-{id}"),
+        at_ms: at,
+        recall: None,
+    };
+    let plan = deaddrop_task::plan::validate(TASK, &golden(), &ctx).unwrap();
+    let mut run = TaskRun::accept(id, accepted, plan);
+    let home = w.root.join(IVA);
+    let mut journal = deaddrop_task::journal::Journal::create(&home, id, run.journal()).unwrap();
+    let mut n = 0;
+    let mut ids = || {
+        n += 1;
+        format!("{id}-rq{n}")
+    };
+    let report = |run: &TaskRun, i: usize, text: &str| RoomMessage {
+        room: ELSEWHERE.into(),
+        id: format!("re-{}", run.request(i).unwrap()),
+        kind: Kind::Report,
+        hop: 0,
+        mentions: vec![],
+        reply_to: Some(run.request(i).unwrap().into()),
+        status: Some(Status::Ok),
+        text: text.into(),
+    };
+    run.ready(at, &ctx, &mut ids);
+    let (r0, r1) = (report(&run, 0, FOUND), report(&run, 1, YES));
+    run.observe(RESEARCH, &r0, at + 1);
+    run.observe(GITHUB, &r1, at + 2);
+    run.ready(at + 3, &ctx, &mut ids);
+    let r2 = report(&run, 2, SUMMARY);
+    run.observe(KLODIK, &r2, at + 4);
+    run.ready(at + 5, &ctx, &mut ids);
+    run.announce(&format!("done-{id}"));
+    journal.catch_up(run.journal()).unwrap();
+    assert_eq!(episode(w, id).unwrap().status, "complete");
+}
+
+/// Every local λ wire line in the room.
+fn notes(app: &App) -> Vec<String> {
+    app.task_notes("d34ddr0p")
+        .flat_map(|n| n.lines.clone())
+        .collect()
+}
+
+/// A task's first journal record.
+fn accepted_record(w: &World, task: &str) -> deaddrop_task::journal::Record {
+    let home = w.root.join(IVA);
+    let loaded =
+        deaddrop_task::journal::read(&deaddrop_task::journal::path(&home, task), task).unwrap();
+    loaded.records[0].clone()
+}
+
+/// The task's first journal line, as bytes on disk.
+fn first_line(w: &World, task: &str) -> String {
+    let home = w.root.join(IVA);
+    std::fs::read_to_string(deaddrop_task::journal::path(&home, task))
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap()
+        .to_owned()
+}
+
+fn traced(app: &App, task: &str) -> Vec<String> {
+    app.task_traces("d34ddr0p")
+        .into_iter()
+        .filter(|(id, _)| *id == task)
+        .flat_map(|(_, t)| t.iter().flat_map(|e| e.fields.clone()))
+        .map(|(k, v)| format!("{k}:: {v}"))
+        .collect()
+}
+
+/// Type `command` under the task and press Enter, whatever comes back.
+fn press(app: &mut App, command: &str) -> Action {
+    for c in TASK.chars() {
+        app.key(Key::Char(c));
+    }
+    app.key(Key::Newline);
+    for c in command.chars() {
+        app.key(Key::Char(c));
+    }
+    app.key(Key::Enter)
+}
+
+#[test]
+fn a_plain_task_reads_no_memory_and_runs_exactly_as_before() {
+    let relay = MemoryRelay::default();
+    let w = World::new("recall-control", &relay);
+    let mut app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    let earlier = finished(&w, &mut app, Runtime::ok(FOUND));
+    // A recall would rebuild this derived file from its journal: it stays
+    // broken only if no recall ran.
+    let file = deaddrop_task::memory::path(&w.root.join(IVA), &earlier);
+    std::fs::write(&file, "{ broken").unwrap();
+    let before = notes(&app);
+
+    let request = w.enter(&mut app, "/task::wire");
+    assert_eq!(request.memory, None, "the planner is given no memory");
+    app.planned(&request.id, Ok(golden()));
+    assert_eq!(w.deliver(&mut app), 4, "task, acceptance, both steps");
+
+    assert_eq!(notes(&app), before, "no memory_read");
+    assert!(
+        !traced(&app, &request.id)
+            .iter()
+            .any(|t| t.contains("memory"))
+    );
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "{ broken");
+    let yours = format!("{TASK}\n\n/task::wire");
+    assert!(w.said().iter().any(|(_, t)| *t == yours));
+    let line = first_line(&w, &request.id);
+    assert!(!line.contains("recall"), "{line}");
+    assert!(matches!(
+        accepted_record(&w, &request.id),
+        deaddrop_task::journal::Record::TaskAccepted { recall: None, .. }
+    ));
+}
+
+#[test]
+fn recall_shows_the_planner_this_rooms_recent_episodes_only() {
+    let relay = MemoryRelay::default();
+    let w = World::new("recall-explicit", &relay);
+    let mut app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    let complete = finished(&w, &mut app, Runtime::ok(FOUND));
+    let failed = finished(&w, &mut app, Runtime::failing());
+    assert_eq!(episode(&w, &failed).unwrap().status, "failed");
+    finished_elsewhere(&w, "T-0e15e0");
+    let sent_before = w.iva.sent().unwrap().len();
+
+    let request = w.enter(&mut app, "/task::wire --recall");
+    assert_eq!(
+        w.iva.sent().unwrap().len(),
+        sent_before,
+        "reading memory sends nothing"
+    );
+    // λ wire: the read, by reference — never the recalled text.
+    let refs = format!("refs:: episode/{failed}, episode/{complete}");
+    let read = [
+        "memory_read:: 2 episodes".to_owned(),
+        "scope:: room/d34ddr0p".to_owned(),
+        refs.clone(),
+    ];
+    let shown = notes(&app);
+    assert_eq!(shown[shown.len() - 3..], read);
+    assert!(
+        !shown
+            .iter()
+            .any(|l| l.contains(TASK) || l.contains(SUMMARY))
+    );
+
+    // The planner: this room's episodes, newest first, failed as failed.
+    let memory = request.memory.clone().expect("a memory block");
+    assert!(memory.len() <= deaddrop_task::recall::MAX_CONTEXT_BYTES);
+    assert!(memory.contains("scope:: room/d34ddr0p"));
+    let (f, c) = (
+        memory
+            .find(&format!("MEMORY EPISODE episode/{failed}"))
+            .unwrap(),
+        memory
+            .find(&format!("MEMORY EPISODE episode/{complete}"))
+            .unwrap(),
+    );
+    assert!(f < c, "newest first");
+    assert!(memory.contains("status:: failed") && memory.contains("status:: complete"));
+    assert!(
+        memory.contains("failure:: research_release failed (research failed); synthesize blocked")
+    );
+    assert!(!memory.contains(ELSEWHERE) && !memory.contains("T-0e15e0"));
+    assert!(!memory.contains("private objective"));
+    assert!(
+        !memory.contains(SUMMARY) && !memory.contains("Announcing Rust"),
+        "refs, not reports"
+    );
+    // The same read again is the same block.
+    let again = deaddrop_task::recall::for_task(&w.root.join(IVA), "d34ddr0p").unwrap();
+    assert_eq!(again.context_text(), memory);
+
+    // Planned and run as ever: the validator and dispatch decide.
+    let (research_rt, github_rt) = (Runtime::ok(FOUND), Runtime::ok(YES));
+    let mut research = w.peer(RESEARCH, research_rt.clone());
+    let mut github = w.peer(GITHUB, github_rt.clone());
+    app.planned(&request.id, Ok(golden()));
+    assert_eq!(w.deliver(&mut app), 4);
+    let yours = format!("{TASK}\n\n/task::wire --recall");
+    assert!(w.said().iter().any(|(_, t)| *t == yours), "as you wrote it");
+    let accepted = format!("task:: accepted\nid:: {}\nsteps:: 3", request.id);
+    assert!(
+        w.said().iter().any(|(_, t)| *t == accepted),
+        "acceptance unchanged"
+    );
+    research.step().unwrap();
+    github.step().unwrap();
+    // Workers get their requests, never memory.
+    for call in research_rt.calls().iter().chain(&github_rt.calls()) {
+        assert!(
+            !call.contains("episode/") && !call.contains("MEMORY"),
+            "{call}"
+        );
+    }
+    assert_eq!((research_rt.calls().len(), github_rt.calls().len()), (1, 1));
+
+    // Durable: the journal keeps scope and refs, and nothing else.
+    let used = deaddrop_task::journal::RecallUsed {
+        scope: "room/d34ddr0p".into(),
+        episodes: vec![format!("episode/{failed}"), format!("episode/{complete}")],
+    };
+    let deaddrop_task::journal::Record::TaskAccepted {
+        room,
+        objective,
+        recall,
+        ..
+    } = accepted_record(&w, &request.id)
+    else {
+        panic!("first record")
+    };
+    assert_eq!((room.as_str(), objective.as_str()), ("d34ddr0p", TASK));
+    assert_eq!(recall, Some(used));
+    let line = first_line(&w, &request.id);
+    assert!(
+        !line.contains("MEMORY") && !line.contains("status::"),
+        "refs only"
+    );
+    let wire = [
+        "memory_read:: 2 episodes".to_owned(),
+        "scope:: room/d34ddr0p".to_owned(),
+        refs.clone(),
+    ];
+    assert_eq!(traced(&app, &request.id)[..3], wire);
+    // A fresh UI tells the same story from the journal alone.
+    drop(app);
+    let app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    assert_eq!(traced(&app, &request.id)[..3], wire);
+}
+
+#[test]
+fn memory_never_restores_revoked_authority() {
+    let relay = MemoryRelay::default();
+    let w = World::new("recall-revoked", &relay);
+    let mut app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    let earlier = finished(&w, &mut app, Runtime::ok(FOUND));
+    drop(app);
+    // Klodik synthesized before; this node's policy no longer allows it.
+    let klodik_rt = Runtime::ok(SUMMARY);
+    let mut klodik = w.peer(KLODIK, klodik_rt.clone());
+    let mut app = w.restarted(&[RESEARCH, GITHUB]);
+    let sent_before = w.iva.sent().unwrap().len();
+    let request = w.enter(&mut app, "/task::wire --recall");
+    let memory = request.memory.clone().unwrap();
+    assert!(memory.contains(&format!("episode/{earlier}")));
+    assert!(memory.contains(&format!("synthesize → {KLODIK} · complete")));
+    app.planned(&request.id, Ok(golden()));
+    w.sync(&mut app);
+    klodik.step().unwrap();
+    assert!(klodik_rt.calls().is_empty(), "klodik never asked");
+    assert_eq!(w.iva.sent().unwrap().len(), sent_before, "nothing sent");
+    assert_eq!(
+        requests_to(&w, KLODIK),
+        1,
+        "only the earlier, allowed task's"
+    );
+    let shown = notes(&app);
+    assert_eq!(
+        shown[shown.len() - 2..],
+        [
+            format!("task:: rejected · {}", request.id),
+            "reason:: step synthesize: synthesize: policy does not allow asking klodik".into(),
+        ]
+    );
+    assert!(!deaddrop_task::journal::path(&w.root.join(IVA), &request.id).exists());
+    let trace = traced(&app, &request.id);
+    assert_eq!(trace[0], "memory_read:: 1 episodes");
+    assert!(trace.last().unwrap().starts_with("plan:: rejected"));
+}
+
+#[test]
+fn recall_in_a_room_without_episodes_is_a_real_empty_read() {
+    let relay = MemoryRelay::default();
+    let w = World::new("recall-empty", &relay);
+    let mut app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    let request = w.enter(&mut app, "/task::wire --recall");
+    assert_eq!(
+        notes(&app),
+        ["memory_read:: 0 episodes", "scope:: room/d34ddr0p"]
+    );
+    let memory = request.memory.clone().unwrap();
+    assert!(memory.contains("no episodes") && !memory.contains("MEMORY EPISODE"));
+    app.planned(&request.id, Ok(golden()));
+    assert_eq!(w.deliver(&mut app), 4, "the task continues normally");
+    assert!(matches!(
+        accepted_record(&w, &request.id),
+        deaddrop_task::journal::Record::TaskAccepted {
+            recall: Some(deaddrop_task::journal::RecallUsed { ref episodes, .. }),
+            ..
+        } if episodes.is_empty()
+    ));
+}
+
+#[test]
+fn an_unreadable_journal_stops_a_recall_task_before_planning() {
+    let relay = MemoryRelay::default();
+    let w = World::new("recall-corrupt", &relay);
+    let mut app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    let earlier = finished(&w, &mut app, Runtime::ok(FOUND));
+    drop(app);
+    let journal = deaddrop_task::journal::path(&w.root.join(IVA), &earlier);
+    let text = std::fs::read_to_string(&journal)
+        .unwrap()
+        .replacen("\"n\":2", "\"n\":9", 1);
+    std::fs::write(&journal, text).unwrap();
+    let rts = [Runtime::ok(FOUND), Runtime::ok(YES), Runtime::ok(SUMMARY)];
+    let mut peers: Vec<_> = [RESEARCH, GITHUB, KLODIK]
+        .iter()
+        .zip(&rts)
+        .map(|(who, rt)| w.peer(who, rt.clone()))
+        .collect();
+    let mut app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    let sent_before = w.iva.sent().unwrap().len();
+
+    let action = press(&mut app, "/task::wire --recall");
+    assert!(matches!(action, Action::None), "the planner is never asked");
+    assert!(
+        app.status.contains("not started · recall store:"),
+        "{}",
+        app.status
+    );
+    let shown = notes(&app);
+    assert!(
+        shown
+            .iter()
+            .any(|l| l.starts_with("reason:: recall store: 1 unreadable journals"))
+    );
+    assert!(
+        !shown.iter().any(|l| l.starts_with("memory_read::")),
+        "no read is claimed"
+    );
+    assert!(!app.task_running());
+    w.sync(&mut app);
+    for p in &mut peers {
+        p.step().unwrap();
+    }
+    assert!(rts.iter().all(|rt| rt.calls().is_empty()), "no worker ran");
+    assert_eq!(w.iva.sent().unwrap().len(), sent_before, "nothing sent");
+    // No silent fallback: the draft is still the recall task, unsent.
+    assert!(
+        app.compose
+            .as_ref()
+            .unwrap()
+            .draft
+            .ends_with("/task::wire --recall")
+    );
+}
+
+#[test]
+fn a_recall_dry_run_reads_locally_and_runs_nothing() {
+    let relay = MemoryRelay::default();
+    let w = World::new("recall-dry-run", &relay);
+    let mut app = w.restarted(&[RESEARCH, GITHUB, KLODIK]);
+    let earlier = finished(&w, &mut app, Runtime::ok(FOUND));
+    let rts = [Runtime::ok(FOUND), Runtime::ok(YES), Runtime::ok(SUMMARY)];
+    let mut peers: Vec<_> = [RESEARCH, GITHUB, KLODIK]
+        .iter()
+        .zip(&rts)
+        .map(|(who, rt)| w.peer(who, rt.clone()))
+        .collect();
+    let sent_before = w.iva.sent().unwrap().len();
+    let request = w.enter(&mut app, "/task::wire --recall --dry-run");
+    assert!(
+        request
+            .memory
+            .unwrap()
+            .contains(&format!("episode/{earlier}"))
+    );
+    app.planned(&request.id, Ok(golden()));
+    w.sync(&mut app);
+    for p in &mut peers {
+        p.step().unwrap();
+    }
+    assert!(
+        rts.iter().all(|rt| rt.calls().is_empty()),
+        "zero worker calls"
+    );
+    assert_eq!(w.iva.sent().unwrap().len(), sent_before, "nothing sent");
+    assert!(!deaddrop_task::journal::path(&w.root.join(IVA), &request.id).exists());
+    let shown = notes(&app);
+    let at = shown
+        .iter()
+        .position(|l| l.starts_with("task:: dry-run"))
+        .unwrap();
+    assert_eq!(
+        shown[at - 3..at + 3],
+        [
+            "memory_read:: 1 episodes".to_owned(),
+            "scope:: room/d34ddr0p".to_owned(),
+            format!("refs:: episode/{earlier}"),
+            format!("task:: dry-run · {} · nothing was run", request.id),
+            "recall:: enabled".to_owned(),
+            "episodes:: 1".to_owned(),
+        ]
+    );
+}

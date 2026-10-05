@@ -48,7 +48,7 @@ arg          = "--" flag | "--" flag "=" value | id
 | command | payload | arguments | meaning |
 |---|---|---|---|
 | `/objective::wire` | required | `--review` `--verbose` | A goal. The orchestrator decides decomposition, capabilities, workers and order. |
-| `/task::wire` | required | `--dry-run` | A concrete task to route and schedule, not reinterpret. |
+| `/task::wire` | required | `--dry-run` `--recall` | A concrete task to route and schedule, not reinterpret. |
 | `/inspect::wire` | required | `--require=<cap>[,<cap>…]` (required) | Read-only evidence gathering using exactly the named capabilities. |
 | `/status::wire` | none | `[<id>]` | Execution state: the current one, or `<id>`. |
 | `/trace::wire` | none | `[<id>]` | The observable machine trace. Observation only. |
@@ -61,6 +61,7 @@ arg          = "--" flag | "--" flag "=" value | id
 - `--review`: build the plan, then wait for human approval before any worker starts.
 - `--verbose`: human-facing orchestration detail (decomposition, capabilities, workers, dependencies, refusals, evaluation summary). Not raw logs; those are `/trace::wire`.
 - `--dry-run`: syntax, policy evaluation, capability resolution and planning only. **No worker invocation, no external side effect, no quest execution.**
+- `--recall`: the orchestrator reads this room's 3 most recent episodes and shows them to the planner as advisory history. Opt-in, room-scoped, bounded; it grants no trust, policy or authority, takes no value and names no scope. See `MEMORY_RECALL.md`.
 - `--require=a.b,c.d`: capability ids. Each is dot-separated segments of `a-z 0-9 _ -`. At least one is required; empty items and duplicates are rejected.
 
 Each flag may appear once. **Duplicates are rejected, not merged.** Boolean flags take no value. A flag valid for a different command is rejected for this one.

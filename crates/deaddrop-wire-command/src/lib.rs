@@ -37,6 +37,9 @@ pub enum WireCommand {
     Task {
         payload: String,
         dry_run: bool,
+        /// The human asks the orchestrator to consult this room's recent
+        /// episodes while planning. Advisory input only: it grants nothing.
+        recall: bool,
     },
     /// Read-only evidence gathering with the named capabilities only.
     Inspect {
@@ -164,7 +167,7 @@ impl fmt::Display for WireError {
 impl std::error::Error for WireError {}
 
 const COMMANDS: [&str; 6] = ["objective", "task", "inspect", "status", "trace", "cancel"];
-const FLAGS: [&str; 4] = ["review", "verbose", "dry-run", "require"];
+const FLAGS: [&str; 5] = ["review", "verbose", "dry-run", "recall", "require"];
 
 /// Parse one message. Total: never panics, for any input.
 pub fn parse(message: &str) -> Parsed {
@@ -243,6 +246,7 @@ fn command(head: &str, args: Vec<&str>, payload: String) -> Result<WireCommand, 
                 "task" => WireCommand::Task {
                     payload,
                     dry_run: flags.dry_run,
+                    recall: flags.recall,
                 },
                 _ => {
                     if flags.require.is_empty() {
@@ -283,6 +287,7 @@ struct Flags {
     review: bool,
     verbose: bool,
     dry_run: bool,
+    recall: bool,
     require: Vec<CapabilityId>,
 }
 
@@ -297,7 +302,7 @@ impl Flags {
         }
         let allowed = match command {
             "objective" => ["review", "verbose"].contains(&key),
-            "task" => key == "dry-run",
+            "task" => ["dry-run", "recall"].contains(&key),
             "inspect" => key == "require",
             _ => false,
         };
@@ -339,6 +344,10 @@ impl Flags {
             }
             ("verbose", None) => {
                 self.verbose = true;
+                Ok(())
+            }
+            ("recall", None) => {
+                self.recall = true;
                 Ok(())
             }
             (_, None) => {
@@ -396,7 +405,8 @@ mod tests {
             command("check this\n/task::wire\n\n  \n"),
             WireCommand::Task {
                 payload: "check this".into(),
-                dry_run: false
+                dry_run: false,
+                recall: false
             }
         );
         assert_eq!(
@@ -445,8 +455,62 @@ mod tests {
             command("Inspect commit X.\n/task::wire --dry-run"),
             WireCommand::Task {
                 payload: "Inspect commit X.".into(),
-                dry_run: true
+                dry_run: true,
+                recall: false
             }
+        );
+    }
+
+    #[test]
+    fn task_recall_is_opt_in_and_order_free() {
+        let parsed = |flags: &str| command(&format!("t\n/task::wire{flags}"));
+        let task = |dry_run, recall| WireCommand::Task {
+            payload: "t".into(),
+            dry_run,
+            recall,
+        };
+        assert_eq!(parsed(""), task(false, false));
+        assert_eq!(parsed(" --recall"), task(false, true));
+        assert_eq!(parsed(" --dry-run"), task(true, false));
+        assert_eq!(parsed(" --dry-run --recall"), task(true, true));
+        assert_eq!(parsed(" --recall --dry-run"), task(true, true));
+        // Recall names no scope: the room is the orchestrator's to decide.
+        for bad in [
+            ("--recall=yes", "wire: flag '--recall' takes no value"),
+            ("--recall --recall", "wire: duplicate flag '--recall'"),
+            ("--recall --room", "wire: unknown flag '--room'"),
+            (
+                "--recall --scope=peer/x",
+                "wire: unknown flag '--scope=peer/x'",
+            ),
+            (
+                "--recall --caller=operator",
+                "wire: unknown flag '--caller=operator'",
+            ),
+            ("--recall --project=x", "wire: unknown flag '--project=x'"),
+            (
+                "--recall room/b4ckr00m",
+                "wire: task takes no arguments; put the text above the command ('room/b4ckr00m')",
+            ),
+        ] {
+            assert_eq!(
+                error(&format!("t\n/task::wire {}", bad.0)),
+                bad.1,
+                "{bad:?}"
+            );
+        }
+        assert_eq!(
+            error("g\n/objective::wire --recall"),
+            "wire: objective does not accept '--recall'"
+        );
+        // Recall does not raise the side-effect ceiling either way.
+        assert_eq!(
+            parsed(" --dry-run --recall").side_effects(),
+            SideEffects::Never
+        );
+        assert_eq!(
+            parsed(" --recall").side_effects(),
+            SideEffects::SubjectToAuthority
         );
     }
 
@@ -640,6 +704,7 @@ mod tests {
         Parsed::Command(WireCommand::Task {
             payload: payload.into(),
             dry_run,
+            recall: false,
         })
     }
 

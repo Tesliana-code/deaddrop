@@ -926,9 +926,10 @@ fn task_lines(app: &App, room: &str, glyphs: Glyphs, tick: usize) -> Vec<Line<'s
             Span::styled(" planner", Style::new().fg(T.vault)),
             Span::styled(
                 format!(
-                    " · planning {}{} · {}s",
+                    " · planning {}{}{} · {}s",
                     p.id,
                     if p.dry_run { " · dry run" } else { "" },
+                    if p.recall.is_some() { " · recall" } else { "" },
                     p.since.elapsed().as_secs()
                 ),
                 muted(),

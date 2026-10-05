@@ -15,13 +15,20 @@
 //! sent again with its original id. Nothing is rerun because the UI
 //! restarted. A terminal task's episode (`deaddrop_task::memory`) is derived
 //! from its journal.
+//!
+//! Memory is read only for `/task::wire --recall`: this room's three most
+//! recent episodes, read as this room's orchestrator before planning, shown
+//! to the planner as a bounded block and on the wire as `memory_read`, and
+//! kept in the accepted task's journal by reference. The validator and every
+//! dispatch re-check decide exactly as they do without it; workers are never
+//! handed memory.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use deaddrop_room::{Kind, RoomMessage, short};
-use deaddrop_task::journal::{self, Fault, Journal};
+use deaddrop_task::journal::{self, Fault, Journal, RecallUsed};
 use deaddrop_task::memory::{self, Episode};
 use deaddrop_task::plan::{Plan, Proposed};
 use deaddrop_task::registry::Context;
@@ -36,6 +43,8 @@ pub struct Planning {
     pub room: String,
     pub payload: String,
     pub dry_run: bool,
+    /// What `--recall` read: kept with the task if it is accepted.
+    pub recall: Option<RecallUsed>,
     pub since: Instant,
 }
 
@@ -44,6 +53,8 @@ pub struct Planning {
 pub struct TaskRequest {
     pub id: String,
     pub payload: String,
+    /// The bounded recall block, for `--recall` only; `None` otherwise.
+    pub memory: Option<String>,
 }
 
 /// Local lines in a room, shown to you only: dry runs and refusals.
@@ -158,8 +169,10 @@ fn trace(fields: Vec<(&'static str, String)>) -> Trace {
 
 impl App {
     /// Enter on a `/task::wire` draft in a room. Plans first; nothing is
-    /// asked of anyone until the plan is validated.
-    pub(super) fn start_task(&mut self, payload: String, dry_run: bool) -> Action {
+    /// asked of anyone until the plan is validated. With `recall`, this
+    /// room's recent episodes are read first, as its orchestrator; a read
+    /// that fails stops the task here, visibly — never planned without.
+    pub(super) fn start_task(&mut self, payload: String, dry_run: bool, recall: bool) -> Action {
         let Some(room) = self
             .compose
             .as_ref()
@@ -184,11 +197,36 @@ impl App {
             return Action::None;
         }
         let id = deaddrop_task::task_id(&deaddrop_protocol::MessageId::generate().to_string());
+        let (memory, used) = if recall {
+            match self.read_memory(&room) {
+                Ok((text, used)) => (Some(text), Some(used)),
+                Err(why) => {
+                    self.status = format!("wire: task {id} not started · recall {why}");
+                    self.tasks.notes.push(Note {
+                        room: room.clone(),
+                        lines: vec![
+                            format!("task:: not started · {id}"),
+                            format!("reason:: recall {why}"),
+                            "nothing was planned or run".into(),
+                        ],
+                    });
+                    self.tasks.logged.push(Logged {
+                        room,
+                        id,
+                        trace: vec![trace(vec![("memory_read", format!("failed · {why}"))])],
+                    });
+                    return Action::None;
+                }
+            }
+        } else {
+            (None, None)
+        };
         self.tasks.planning = Some(Planning {
             id: id.clone(),
             room,
             payload: payload.clone(),
             dry_run,
+            recall: used,
             since: Instant::now(),
         });
         if let Some(compose) = &mut self.compose {
@@ -197,10 +235,36 @@ impl App {
         }
         self.follow = true;
         self.status = format!(
-            "wire: task {id} · planning{}",
-            if dry_run { " · dry run" } else { "" }
+            "wire: task {id} · planning{}{}",
+            if dry_run { " · dry run" } else { "" },
+            if recall { " · recall" } else { "" }
         );
-        Action::PlanTask(TaskRequest { id, payload })
+        Action::PlanTask(TaskRequest {
+            id,
+            payload,
+            memory,
+        })
+    }
+
+    /// The `--recall` read: as the orchestrator of `room` — never a scope
+    /// the command named — that room's most recent episodes. Shown on the
+    /// wire as `memory_read`, by reference; the text goes to the planner.
+    fn read_memory(&mut self, room: &str) -> Result<(String, RecallUsed), String> {
+        let home = self.tasks.home.as_ref().ok_or("needs a node home")?;
+        let bundle = deaddrop_task::recall::for_task(home, room).map_err(|e| e.to_string())?;
+        let used = bundle.used();
+        let mut lines = vec![
+            format!("memory_read:: {} episodes", used.episodes.len()),
+            format!("scope:: {}", used.scope),
+        ];
+        if !used.episodes.is_empty() {
+            lines.push(format!("refs:: {}", used.episodes.join(", ")));
+        }
+        self.tasks.notes.push(Note {
+            room: room.to_owned(),
+            lines,
+        });
+        Ok((bundle.context_text(), used))
     }
 
     /// What this node knows for resolving workers in `room`.
@@ -227,8 +291,11 @@ impl App {
             room,
             payload,
             dry_run,
+            recall,
             ..
         } = planning;
+        // Never-run tasks keep their memory read in their trace too.
+        let read: Vec<Trace> = recall.iter().map(deaddrop_task::run::memory_read).collect();
         let validated = proposed
             .and_then(|p| deaddrop_task::plan::validate(&payload, &p, &self.task_context(&room)));
         let plan = match validated {
@@ -239,25 +306,32 @@ impl App {
                     room: room.clone(),
                     lines: vec![format!("task:: rejected · {id}"), format!("reason:: {why}")],
                 });
+                let mut log = read;
+                log.push(trace(vec![("plan", format!("rejected · {why}"))]));
                 self.tasks.logged.push(Logged {
                     room,
                     id: id.to_owned(),
-                    trace: vec![trace(vec![("plan", format!("rejected · {why}"))])],
+                    trace: log,
                 });
                 return;
             }
         };
         if dry_run {
             let mut lines = vec![format!("task:: dry-run · {id} · nothing was run")];
+            if let Some(r) = &recall {
+                lines.push("recall:: enabled".into());
+                lines.push(format!("episodes:: {}", r.episodes.len()));
+            }
             lines.extend(describe(&plan));
             self.tasks.notes.push(Note {
                 room: room.clone(),
                 lines,
             });
-            let mut log = vec![trace(vec![(
+            let mut log = read;
+            log.push(trace(vec![(
                 "plan",
                 format!("valid · {} steps · dry run, not run", plan.steps.len()),
-            )])];
+            )]));
             for s in &plan.steps {
                 let mut fields = vec![
                     ("would assign", s.capability.to_owned()),
@@ -288,6 +362,8 @@ impl App {
             human_message: fresh(),
             accepted_message: fresh(),
             at_ms: now_ms(),
+            // Which episodes informed the plan, durably and by reference.
+            recall,
         };
         let run = TaskRun::accept(id, accepted, plan);
         // Journaled before anything is sent; no journal, no task.

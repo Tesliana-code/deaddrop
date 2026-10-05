@@ -476,6 +476,7 @@ pub(crate) mod tests {
             human_message: format!("h-{id}"),
             accepted_message: format!("a-{id}"),
             at_ms,
+            recall: None,
         };
         let mut run = TaskRun::accept(id, accepted, validate(TASK, &golden(), &ctx()).unwrap());
         let mut j = Journal::create(home, id, run.journal()).unwrap();
@@ -592,6 +593,7 @@ pub(crate) mod tests {
             human_message: "h".into(),
             accepted_message: "a".into(),
             at_ms: 1,
+            recall: None,
         };
         let run = TaskRun::accept(
             "T-000004",
