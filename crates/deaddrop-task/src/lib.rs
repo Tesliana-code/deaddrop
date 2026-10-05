@@ -19,6 +19,7 @@ pub mod journal;
 pub mod memory;
 pub mod plan;
 pub mod planner;
+pub mod recall;
 pub mod registry;
 pub mod run;
 

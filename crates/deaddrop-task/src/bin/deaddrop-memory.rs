@@ -6,19 +6,25 @@
 //!   --task T-…  --status complete|failed  --capability <id>
 //!   --worker <node id>  --room <name>  --scope task/…|room/…|peer/…|project/…
 //!   --recent N  --json
+//!
+//! `--recall` answers as the local operator through the bounded recall API
+//! instead: at most 20 compact, reference-first items (5 by default), each
+//! with the filters it matched; text is the bounded context block.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use deaddrop_task::memory::{Query, query};
+use deaddrop_task::recall::{self, Caller};
 
-const USAGE: &str = "usage: deaddrop-memory --home <dir> [--task T-…] [--status complete|failed] [--capability <id>] [--worker <node id>] [--room <name>] [--scope <scope>] [--recent N] [--json]";
+const USAGE: &str = "usage: deaddrop-memory --home <dir> [--task T-…] [--status complete|failed] [--capability <id>] [--worker <node id>] [--room <name>] [--scope <scope>] [--recent N] [--recall] [--json]";
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let mut home = std::env::var_os("DEADDROP_HOME").map(PathBuf::from);
     let mut q = Query::default();
     let mut json = false;
+    let mut bundle = false;
     while let Some(arg) = args.next() {
         let mut value = || args.next().ok_or_else(|| format!("{arg} needs a value"));
         let set = match arg.as_str() {
@@ -38,6 +44,10 @@ fn main() -> ExitCode {
                 json = true;
                 Ok(())
             }
+            "--recall" => {
+                bundle = true;
+                Ok(())
+            }
             other => Err(format!("unknown argument {other:?}")),
         };
         if let Err(e) = set {
@@ -49,6 +59,24 @@ fn main() -> ExitCode {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
+    if bundle {
+        let b = match recall::recall(&Caller::Operator, &home, &q) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("deaddrop-memory: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
+        if json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&b).expect("recall serializes")
+            );
+        } else {
+            print!("{}", b.context_text());
+        }
+        return ExitCode::SUCCESS;
+    }
     let (hits, recall) = match query(&home, &q) {
         Ok(found) => found,
         Err(e) => {

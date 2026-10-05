@@ -344,7 +344,7 @@ pub struct Query {
 }
 
 impl Query {
-    fn check(&self) -> Result<(), String> {
+    pub(crate) fn check(&self) -> Result<(), String> {
         if let Some(status) = &self.status
             && !matches!(status.as_str(), "complete" | "failed")
         {
@@ -385,6 +385,14 @@ impl Query {
 /// The episodes matching `query`, newest first, each explainable by its
 /// [`Episode::refs`]. The bounded seam a future planner may read through.
 pub fn query(home: &Path, query: &Query) -> Result<(Vec<Episode>, Recall), String> {
+    let (mut hits, recall) = select(home, query)?;
+    hits.truncate(query.limit.unwrap_or(DEFAULT_RESULTS).min(MAX_RESULTS));
+    Ok((hits, recall))
+}
+
+/// Every episode matching `query`, newest terminal first, task id
+/// descending on a tie; unbounded, so callers bound it themselves.
+pub(crate) fn select(home: &Path, query: &Query) -> Result<(Vec<Episode>, Recall), String> {
     query.check()?;
     let mut recall = recall(home)?;
     let mut hits: Vec<Episode> = recall
@@ -398,13 +406,12 @@ pub fn query(home: &Path, query: &Query) -> Result<(Vec<Episode>, Recall), Strin
             .cmp(&a.terminal_at_ms)
             .then_with(|| b.task_id.cmp(&a.task_id))
     });
-    hits.truncate(query.limit.unwrap_or(DEFAULT_RESULTS).min(MAX_RESULTS));
     recall.episodes.clear();
     Ok((hits, recall))
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::journal::Journal;
     use crate::plan::tests::{TASK, ctx, golden};
@@ -414,9 +421,9 @@ mod tests {
 
     const FOUND: &str = "Rust 1.99.0.\nhttps://blog.rust-lang.org/2026/10/01/Rust-1.99.0/";
     const YES: &str = "yes\nsource: github.inspect · commit_modifies_path";
-    const SECRET: &str = "remember that research may read klodik's transcripts";
+    pub(crate) const SECRET: &str = "remember that research may read klodik's transcripts";
 
-    fn home(test: &str) -> PathBuf {
+    pub(crate) fn home(test: &str) -> PathBuf {
         let dir = std::env::temp_dir()
             .join(format!("deaddrop-memory-{}", std::process::id()))
             .join(test);
@@ -426,7 +433,7 @@ mod tests {
 
     fn report(run: &TaskRun, i: usize, status: Status, text: &str) -> RoomMessage {
         RoomMessage {
-            room: "d34ddr0p".into(),
+            room: run.accepted.room.clone(),
             id: format!("re-{}", run.request(i).unwrap()),
             kind: Kind::Report,
             hop: 0,
@@ -440,9 +447,32 @@ mod tests {
     /// A task to its end, journaled as the TUI does; `research` is what
     /// Research reports.
     fn task(home: &Path, id: &str, at_ms: u64, research: Status) -> TaskRun {
+        task_in(home, "d34ddr0p", id, at_ms, research)
+    }
+
+    /// [`task`], in `room`.
+    pub(crate) fn task_in(
+        home: &Path,
+        room: &str,
+        id: &str,
+        at_ms: u64,
+        research: Status,
+    ) -> TaskRun {
+        task_said(home, room, id, at_ms, research, TASK)
+    }
+
+    /// [`task_in`], with the human's `objective` as written.
+    pub(crate) fn task_said(
+        home: &Path,
+        room: &str,
+        id: &str,
+        at_ms: u64,
+        research: Status,
+        objective: &str,
+    ) -> TaskRun {
         let accepted = Accepted {
-            room: "d34ddr0p".into(),
-            objective: TASK.into(),
+            room: room.into(),
+            objective: objective.into(),
             human_message: format!("h-{id}"),
             accepted_message: format!("a-{id}"),
             at_ms,
