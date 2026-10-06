@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use deaddrop_protocol::{
     ArtifactRef, CorrelationId, EnvelopeV0, MessageId, MessageKind, NodeId, PROTOCOL_V0,
+    SignatureV0, decode_signature_v0, encode_signature_v0,
 };
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 
@@ -89,6 +90,17 @@ impl SqliteMessageStore {
 
             CREATE INDEX IF NOT EXISTS messages_by_recipient
                 ON messages(recipient, message_id);
+
+            -- Detached signature evidence. Not keyed to stored envelopes:
+            -- records may arrive before, after, or without their message.
+            CREATE TABLE IF NOT EXISTS message_signatures (
+                message_id TEXT NOT NULL,
+                signer TEXT NOT NULL,
+                public_key TEXT NOT NULL,
+                signature TEXT NOT NULL,
+                record TEXT NOT NULL,
+                PRIMARY KEY (message_id, signer, public_key, signature)
+            );
             ",
         )?;
 
@@ -214,6 +226,76 @@ impl SqliteMessageStore {
 
         Ok(envelope)
     }
+}
+
+/// Detached signature records. The store keeps every distinct record for a
+/// message id and never verifies, ranks, or chooses among them.
+impl SqliteMessageStore {
+    pub fn store_signature(
+        &mut self,
+        record: &SignatureV0,
+    ) -> Result<MessageStoreOutcome, SqliteMessageStoreError> {
+        let canonical = encode_signature_v0(record).map_err(|error| {
+            SqliteMessageStoreError::InvalidPersistedField {
+                field: "signature",
+                value: error.to_string(),
+            }
+        })?;
+        let canonical = String::from_utf8(canonical).expect("canonical JSON is UTF-8");
+        let inserted = self.connection.execute(
+            "
+            INSERT OR IGNORE INTO message_signatures (
+                message_id, signer, public_key, signature, record
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ",
+            params![
+                record.message_id().as_str(),
+                record.signer().as_str(),
+                record.key().to_string(),
+                hex(record.signature()),
+                canonical,
+            ],
+        )?;
+        Ok(if inserted == 1 {
+            MessageStoreOutcome::Stored
+        } else {
+            MessageStoreOutcome::AlreadyPresent
+        })
+    }
+
+    /// Every record for `message_id`, sorted by (signer, key, signature)
+    /// for deterministic enumeration only.
+    pub fn signatures_for(
+        &self,
+        message_id: &MessageId,
+    ) -> Result<Vec<SignatureV0>, SqliteMessageStoreError> {
+        let mut statement = self.connection.prepare(
+            "
+            SELECT record FROM message_signatures
+            WHERE message_id = ?1
+            ORDER BY signer, public_key, signature
+            ",
+        )?;
+        let rows =
+            statement.query_map(params![message_id.as_str()], |row| row.get::<_, String>(0))?;
+        let mut records = Vec::new();
+        for row in rows {
+            let row = row?;
+            let record = decode_signature_v0(row.as_bytes()).map_err(|_| {
+                SqliteMessageStoreError::InvalidPersistedField {
+                    field: "signature",
+                    value: row.clone(),
+                }
+            })?;
+            records.push(record);
+        }
+        Ok(records)
+    }
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 impl MessageStore for SqliteMessageStore {

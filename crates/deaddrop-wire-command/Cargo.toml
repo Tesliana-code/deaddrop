@@ -1,0 +1,7 @@
+[package]
+name = "deaddrop-wire-command"
+version = "0.1.0"
+edition = "2024"
+
+# Pure: no runtime, no transport, no Agent Wire dependency.
+[dependencies]

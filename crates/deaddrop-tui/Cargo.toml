@@ -1,0 +1,21 @@
+[package]
+name = "deaddrop-tui"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "deaddrop-tui"
+path = "src/main.rs"
+
+[dependencies]
+deaddrop-protocol = { path = "../deaddrop-protocol" }
+deaddrop-shell = { path = "../deaddrop-shell" }
+deaddrop-room = { path = "../deaddrop-room" }
+deaddrop-task = { path = "../deaddrop-task" }
+deaddrop-wire-command = { path = "../deaddrop-wire-command" }
+# 0.29 keeps the workspace's Rust 1.85 floor (0.30 needs 1.88). Crossterm is
+# used through ratatui's re-export, so its version always matches.
+ratatui = { version = "0.29", default-features = false, features = ["crossterm"] }
+# Already in the tree through ratatui: the composer cursor moves by what a
+# reader sees as one character.
+unicode-segmentation = "1.13"

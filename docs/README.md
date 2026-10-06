@@ -18,7 +18,8 @@ Read it in this order:
 12. [CAPABILITY_ROUTING.md](CAPABILITY_ROUTING.md) — capability graph instead of popularity graph
 13. [INTEROPERABILITY.md](INTEROPERABILITY.md) — multi-client, multi-model, multi-runtime compatibility
 14. [AGENT_WIRE.md](AGENT_WIRE.md) — public Agent Wire contribution boundary inside Deaddrop
-15. [adr/README.md](adr/README.md) — architecture decision record policy
+15. [MEMORY_RECALL.md](MEMORY_RECALL.md) — bounded, read-only, scope-gated episodic recall
+16. [adr/README.md](adr/README.md) — architecture decision record policy
 
 Repository-level policies:
 

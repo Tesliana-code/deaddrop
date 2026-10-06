@@ -16,6 +16,13 @@
 //! semantic, causal, chronological, delivery, or priority order. Like every
 //! route here it assumes the loopback-only local node boundary.
 //!
+//! `POST /v0/messages/{id}/signatures` stores one canonical detached
+//! `SignatureV0` record for message `{id}`; `GET` on the same path lists
+//! every stored record as its canonical JSON string. The node never verifies
+//! signatures and never chooses among records: it is a mailbox, not an
+//! identity authority. Records are independent of whether the message itself
+//! is stored.
+//!
 //! Artifacts are opaque exact bytes. Identity, layout, and integrity
 //! verification belong to `ArtifactRef` and `FilesystemArtifactStore`; this
 //! adapter only moves bytes and maps outcomes to HTTP. Artifact routes never
@@ -29,7 +36,10 @@ use axum::extract::{DefaultBodyLimit, Path, RawQuery, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use deaddrop_protocol::{ArtifactRef, MessageId, NodeId, decode_envelope_v0, encode_envelope_v0};
+use deaddrop_protocol::{
+    ArtifactRef, MessageId, NodeId, decode_envelope_v0, decode_signature_v0, encode_envelope_v0,
+    encode_signature_v0,
+};
 use deaddrop_store::{
     ArtifactPutOutcome, ArtifactStore, FilesystemArtifactStore, MessageStore, MessageStoreOutcome,
     SqliteMessageStore, SqliteMessageStoreError,
@@ -104,6 +114,10 @@ pub fn router(messages: SqliteMessageStore, artifacts: FilesystemArtifactStore) 
     let messages = Router::new()
         .route("/v0/messages", post(post_message).get(list_messages))
         .route("/v0/messages/{id}", get(get_message))
+        .route(
+            "/v0/messages/{id}/signatures",
+            post(post_signature).get(list_signatures),
+        )
         .layer(DefaultBodyLimit::max(LOCAL_BODY_LIMIT_BYTES));
 
     let artifacts = Router::new()
@@ -289,6 +303,107 @@ async fn get_message(State(state): State<NodeState>, Path(id): Path<String>) -> 
             .into_response(),
         Err(error) => internal(format!("encode failed: {error}")),
     }
+}
+
+async fn post_signature(
+    State(state): State<NodeState>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !has_content_type(&headers, "application/json") {
+        return error_response(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "unsupported_media_type",
+            "expected Content-Type: application/json".to_owned(),
+        );
+    }
+
+    let record = match decode_signature_v0(&body) {
+        Ok(record) => record,
+        Err(error) => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "invalid_signature_record",
+                error.to_string(),
+            );
+        }
+    };
+
+    if record.message_id().as_str() != id {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "message_id_mismatch",
+            format!(
+                "path id {id:?} does not match record message_id {:?}",
+                record.message_id().as_str()
+            ),
+        );
+    }
+
+    let outcome = match state
+        .with_store(move |store| store.store_signature(&record))
+        .await
+    {
+        Ok(outcome) => outcome,
+        Err(response) => return response,
+    };
+
+    match outcome {
+        Ok(MessageStoreOutcome::Stored) => (
+            StatusCode::CREATED,
+            axum::Json(json!({ "status": "stored", "message_id": id })),
+        )
+            .into_response(),
+        Ok(MessageStoreOutcome::AlreadyPresent) => (
+            StatusCode::OK,
+            axum::Json(json!({ "status": "already_present", "message_id": id })),
+        )
+            .into_response(),
+        Err(error) => internal(format!("store failed: {error}")),
+    }
+}
+
+async fn list_signatures(State(state): State<NodeState>, Path(id): Path<String>) -> Response {
+    let message_id = match MessageId::parse(id.clone()) {
+        Ok(message_id) => message_id,
+        Err(error) => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "invalid_message_id",
+                format!("{id:?}: {error}"),
+            );
+        }
+    };
+
+    let listed = match state
+        .with_store(move |store| store.signatures_for(&message_id))
+        .await
+    {
+        Ok(listed) => listed,
+        Err(response) => return response,
+    };
+
+    let records = match listed {
+        Ok(records) => records,
+        Err(error) => return internal(format!("list failed: {error}")),
+    };
+
+    let mut signatures = Vec::with_capacity(records.len());
+    for record in &records {
+        match encode_signature_v0(record) {
+            Ok(bytes) => {
+                signatures.push(String::from_utf8(bytes).expect("canonical JSON is UTF-8"))
+            }
+            Err(error) => return internal(format!("encode failed: {error}")),
+        }
+    }
+
+    (
+        StatusCode::OK,
+        axum::Json(json!({ "signatures": signatures })),
+    )
+        .into_response()
 }
 
 // Artifact store errors carry local filesystem paths; they are deliberately

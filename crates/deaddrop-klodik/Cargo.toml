@@ -1,0 +1,20 @@
+[package]
+name = "deaddrop-klodik"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "deaddrop-klodik"
+path = "src/main.rs"
+
+[dependencies]
+deaddrop-protocol = { path = "../deaddrop-protocol" }
+deaddrop-shell = { path = "../deaddrop-shell" }
+deaddrop-room = { path = "../deaddrop-room" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+
+[dev-dependencies]
+# Integration test only: the TUI's own state and send path, driven headless.
+deaddrop-tui = { path = "../deaddrop-tui" }
+deaddrop-task = { path = "../deaddrop-task" }

@@ -1,0 +1,16 @@
+[package]
+name = "deaddrop-task"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "/task::wire V0: capability registry, plan validation and Agent Wire quest execution over Deaddrop rooms"
+
+[dependencies]
+# Agent Wire is the completion authority: quests, worker reports and every
+# COMPLETE / REVISE decision. Pinned to one commit, as Agent Wire pins us.
+agent-wire-coordinate = { git = "ssh://git@github.com/Tesliana-code/agent-wire.git", rev = "c314763b1aa64241e424ae7e91240d2eba2d2bc6" }
+deaddrop-github = { path = "../deaddrop-github" }
+deaddrop-klodik = { path = "../deaddrop-klodik" }
+deaddrop-room = { path = "../deaddrop-room" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.151"
