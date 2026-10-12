@@ -39,3 +39,40 @@ jobs:
             clippy) cargo clippy --workspace --all-targets --all-features --locked -- -D warnings ;;
             *) exit 2 ;;
           esac
+
+  workflow-security:
+    name: Workflow supply-chain policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Verify immutable action refs and read-only workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          count=0
+          for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
+            test -f "$workflow" || continue
+            count=$((count + 1))
+            if grep -Eq '^[[:space:]]*(pull_request_target|workflow_run):' "$workflow"; then
+              echo "::error file=$workflow::Privileged trigger requires security review"
+              exit 1
+            fi
+            if grep -Eiq '^[[:space:]]*(contents|actions|id-token|pull-requests|issues|checks|deployments|packages|security-events):[[:space:]]*write([[:space:]#]|$)' "$workflow"; then
+              echo "::error file=$workflow::Write permissions not permitted in CI baseline"
+              exit 1
+            fi
+            if ! grep -Eq '^[[:space:]]*permissions:' "$workflow"; then
+              echo "::error file=$workflow::Missing permissions block"
+              exit 1
+            fi
+            while IFS= read -r action; do
+              if [[ ! "$action" =~ ^[^@[:space:]]+@[0-9a-f]{40}$ ]]; then
+                echo "::error file=$workflow::Action must have full-length SHA: $action"
+                exit 1
+              fi
+            done < <(sed -nE 's/^[[:space:]]*-[[:space:]]*uses:[[:space:]]*([^[:space:]#]+).*/\1/p' "$workflow")
+          done
+          test "$count" -gt 0
+          echo "Read-only workflow policy PASS: $count workflows inspected"
